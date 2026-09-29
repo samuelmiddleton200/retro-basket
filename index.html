@@ -22,7 +22,9 @@
   #ui[data-screen="leaders"]{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 </style>
 <script>
-  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // No surprise updates: the app never reloads itself. A new version (only when we publish one) shows the
+  // next time the app is closed and opened again, because the game loads fresh from the server at launch.
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache:'none' }).catch(() => {}));
 </script>
 <title>Retro Basket</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
