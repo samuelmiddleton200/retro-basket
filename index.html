@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- no zooming; the game fills the screen -->
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <!-- opened from the home screen: no Safari bars, black status bar -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -17,7 +17,9 @@
   html,body{overscroll-behavior:none;touch-action:manipulation;-webkit-text-size-adjust:100%}   /* no bounce, no double-tap zoom */
   /* like an app: the page itself never moves; long menus scroll inside the game area */
   html,body{height:100%;overflow:hidden}
-  #ui{height:100%;height:100dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  #ui{height:100%;height:100dvh;min-height:0 !important;overflow:hidden;overscroll-behavior:none}
+  /* the stats list is the only screen allowed to scroll, and only up and down */
+  #ui[data-screen="leaders"]{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 </style>
 <script>
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -211,10 +213,17 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 /* post-game: result | money | fans + continue */
 .post3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,.9fr);gap:12px;align-items:start}
 
+/* Edge to edge on notched phones: backgrounds and the court run under the notch; buttons and text stay
+   clear of it (env() is 0 on computers, so nothing changes there). The notch is only ~30pt deep. */
+#ui{padding-left:max(10px,calc(env(safe-area-inset-left) - 14px));padding-right:max(10px,calc(env(safe-area-inset-right) - 14px))}
+.shootbtn{right:calc(12px + env(safe-area-inset-right) * .6);bottom:calc(12px + env(safe-area-inset-bottom) * .5)}
+.meter{left:calc(14px + env(safe-area-inset-left) * .7)}.meter.right{right:calc(14px + env(safe-area-inset-right) * .7)}
+.gbtn{right:calc(6px + env(safe-area-inset-right) * .6)}
+
 /* Phones sideways (iPhone 14 landscape leaves about 750 x 369 to work with): every screen but the
    stats lists fits on one screen, so spacing, type and art all tighten up. */
 @media (max-height:500px){
-  #ui{padding-block:6px 8px;padding-inline:10px}
+  #ui{padding-block:6px 8px}                                           /* sides come from the notch-aware rule above */
   .bar{margin-bottom:6px;gap:8px}
   .title{font-size:18px}
   .box{padding:2px 8px;font-size:12px;border-width:2px}
@@ -242,7 +251,7 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
   .capbar{margin-top:6px;gap:6px}.cap{padding:2px 6px;border-width:2px}.cap .t{font-size:9px;margin-bottom:2px}.cap .track{height:8px}
   .fatabs{margin-bottom:6px}.fanote{display:none}
   /* tables (standings) */
-  table{font-size:12px}th{padding:1px 4px;font-size:9px}td{padding:0 4px;border-top-width:1px;line-height:1.3}
+  table{font-size:12px}th{padding:1px 4px;font-size:9px}td{padding:0 4px;border-top-width:1px;line-height:1.2}
   td .stars{font-size:10px;letter-spacing:0}
   /* player page */
   .pp{grid-template-columns:130px minmax(0,1fr);gap:10px}
@@ -252,6 +261,8 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
   .rt .nm{font-size:10px}.segs i{height:10px}
   .rt + .muted{display:none}                                           /* rating descriptions */
   .pst{font-size:11px}.pst td,.pst th{padding:1px 4px}
+  .pp .panel .muted{display:none}                                      /* "per game" footnote under the stats table */
+  .rt{margin-bottom:2px}
   /* team picker */
   .tgrid{gap:4px}.tpick{padding:2px 4px;gap:4px}.tpick .tn{font-size:9px;line-height:1.05}.tpick .tn b{font-size:8px}
   .badge.sm{width:22px;height:22px;font-size:7px}
@@ -907,6 +918,7 @@ function render(){
   const f = { kit:kitHTML, roster:rosterHTML, player:playerHTML, league:leagueHTML, office:officeHTML, fa:faHTML, leaders:leadersHTML, post:postHTML, draft:draftHTML }[screen] || hubHTML;
   ui.innerHTML = f();
   window.scrollTo(0, 0); ui.scrollTop = 0;                           // the phone app scrolls #ui, not the page
+  ui.dataset.screen = G ? screen : 'create';                         // only the stats list may scroll (see the phone CSS)
 }
 
 let createColor = 0;
@@ -1342,7 +1354,8 @@ function kitHTML(){
 }
 
 /* ============================ ENGINE ============================ */
-const CW = 320, CH = 180, PXF = 4.6, PYF = 2.55, PZF = 3.5, X0 = 16, Y0 = 44;
+let CW = 320;                                                         // view width in court pixels: set by fit() to the screen's shape
+const CH = 180, PXF = 4.6, PYF = 2.55, PZF = 3.5, X0 = 16, Y0 = 44;
 const RIM_R = { x:88.75, y:25 }, RIM_L = { x:5.25, y:25 }, RIM_Z = 10;
 const WORLD_W = Math.ceil(X0 * 2 + 94 * PXF);
 const cv = $('#court'), ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
@@ -1783,7 +1796,11 @@ function drawBall(x, y, z){
 
 /* ---- match state ---- */
 let M = null, raf = 0, lastT = 0, paused = false;
+// The view is always 180 px tall; its width follows the screen's shape (16:9 is 320, an iPhone 14 sideways
+// is about 390), so wide phones see more court instead of black bars. The camera scrolls along the court.
 function fit(){
+  CW = clamp(Math.round(CH * innerWidth / innerHeight), 320, Math.min(420, WORLD_W));
+  if (cv.width !== CW * 2) { cv.width = CW * 2; cv.height = CH * 2; }
   const s = Math.min(innerWidth / CW, innerHeight / CH);
   cv.style.width = Math.floor(CW * s) + 'px'; cv.style.height = Math.floor(CH * s) + 'px';
 }
