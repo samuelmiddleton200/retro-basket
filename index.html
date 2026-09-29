@@ -1927,6 +1927,40 @@ const tip = t => { $('#tip').textContent = t || ''; };
 function holderEnt(){ const h = M.ball.holder; return h ? (h.side === 'us' ? M.our[h.i] : M.th[h.i]) : null; }
 function give(side, i){ M.ball.holder = { side, i }; M.ball.fl = null; if (side === 'us') M.handler = i; }
 
+/* ---- where each position likes to be on offense (our end; the other team mirrors it) ----
+   C: in and around the paint. PG: circling the 3-point line. SG/SF: anywhere with a look, always relocating.
+   PF: mid-range and the elbows, and he drives at the rim when he gets it. */
+const ROLE_WAIT = { PG:[1, 2], SG:[.8, 1.8], SF:[.8, 1.8], PF:[1.8, 3.2], C:[2.2, 3.8] };   // seconds at a spot before moving on
+function roleSpot(pos, mates){
+  const rim = RIM_R;
+  const pickOne = () => {
+    if (pos === 'C') return { x:rnd(80, 87), y:rnd(18.5, 31.5) };                              // the paint
+    if (pos === 'PG') { const a = rnd(-1.15, 1.15); return { x:rim.x - Math.cos(a) * 24.8, y:clamp(rim.y + Math.sin(a) * 24.8, 3, 47) }; }   // on the arc
+    if (pos === 'PF') return pick([{ x:74, y:17 }, { x:74, y:33 }, { x:78, y:11 }, { x:78, y:39 }, { x:71, y:25 }]);   // elbows, mid-range
+    return pick(OUR_SPOTS.filter((s, k) => ![7, 8, 11].includes(k)));                             // SG/SF: wings, corners, elbows, top
+  };
+  // spread out: don't stand within 7 ft of a teammate's spot
+  let best = null;
+  for (let t = 0; t < 10; t++) {
+    const s = pickOne(), p = { x:clamp(s.x + rnd(-1.5, 1.5), 48, 92), y:clamp(s.y + rnd(-1.5, 1.5), 2, 48) };
+    if (mates.every(m => Math.hypot(m.tx - p.x, m.ty - p.y) > 7)) return p;
+    best = p;
+  }
+  return best;
+}
+function relocate(e, team, i){
+  const mates = team.filter((m, k) => k !== i);
+  const s = roleSpot(e.p.pos, mates);
+  e.tx = s.x; e.ty = s.y; e.spot = -1; e.cover = 0;
+  const [a, b] = ROLE_WAIT[e.p.pos] || [1, 2]; e.wait = rnd(a, b);
+}
+// the same roles for the other team, mirrored to their end of the floor
+function relocateThem(e, i){
+  const mates = M.th.filter((m, k) => k !== i).map(m => ({ tx:94 - m.tx, ty:m.ty }));
+  const s = roleSpot(e.p.pos, mates);
+  e.tx = 94 - s.x; e.ty = s.y;
+  const [a, b] = ROLE_WAIT[e.p.pos] || [1, 2]; e.wait = rnd(a, b);
+}
 function startOurs(fromX, fromY, inbound){
   if (checkQuarterEnd()) return;
   M.phase = 'back'; M.shot = 24; M.shooting = null; M.oshot = null; hideMeter(); hideMeter('o');
@@ -1934,10 +1968,8 @@ function startOurs(fromX, fromY, inbound){
   M.our.forEach((e, i) => { if (i === h) { e.x = fromX; e.y = fromY; } e.spot = -1; e.state = 'move'; });
   give('us', h);
   const carrier = M.our[h]; carrier.tx = OUR_SPOTS[0].x; carrier.ty = 25 + rnd(-3, 3);
-  // teammates jog to their starting spots
-  const init = [0, 1, 2, 7, 8];
-  let k = 1;
-  M.our.forEach((e, i) => { if (i === h) return; e.spot = init[k++]; e.tx = OUR_SPOTS[e.spot].x; e.ty = OUR_SPOTS[e.spot].y; });
+  // teammates run to where their position likes to be
+  M.our.forEach((e, i) => { if (i === h) return; relocate(e, M.our, i); });
   tip('');
 }
 function startTheirs(fromX, fromY, inbound){
@@ -1946,9 +1978,8 @@ function startTheirs(fromX, fromY, inbound){
   const h = inbound ? 0 : nearestIdx(M.th, { x:fromX, y:fromY });
   M.th.forEach((e, i) => { if (i === h) { e.x = fromX; e.y = fromY; } });
   give('them', h);
-  const spots = [0, 1, 2, 7, 8, 3, 4, 5, 6].sort(() => Math.random() - .5).slice(0, 5);
-  M.th.forEach((e, i) => { e.spot = spots[i]; e.tx = THEIR_SPOTS[spots[i]].x; e.ty = THEIR_SPOTS[spots[i]].y; });
   M.th[h].tx = THEIR_SPOTS[0].x; M.th[h].ty = THEIR_SPOTS[0].y;
+  M.th.forEach((e, i) => { if (i !== h) relocateThem(e, i); });   // the rest run to their position's spots
   M.oppPlan = { passes:ri(0, 2), t:0, state:'bring', stealRoll:Math.random() < .07 + (userRatings().spd - teamR(M.opp).hnd) * .01 };
   tip('');
 }
@@ -2114,7 +2145,10 @@ function updateBack(dt){
   const c = M.our[M.handler];
   M.our.forEach((e, i) => { moveTo(e, e.tx, e.ty, i === M.handler ? ourSpeed(e) * BALL_SLOW : ourSpeed(e), dt); tire(e, dt); });
   guardOurs(dt);
-  if (c.x >= 47.5) { M.phase = 'live'; tip('Tap a teammate to pass · hold SHOOT to shoot'); c.spot = 0; }
+  if (c.x >= 47.5) {
+    M.phase = 'live'; tip('Tap a teammate to pass · hold SHOOT to shoot'); c.spot = 0;
+    if (c.p.pos === 'PF') { c.tx = RIM_R.x - rnd(3.5, 5); c.ty = RIM_R.y + rnd(-3.5, 3.5); }   // a PF with the ball drives at the rim
+  }
 }
 function updateLive(dt, frozen){
   M.our.forEach((e, i) => {
@@ -2123,12 +2157,10 @@ function updateLive(dt, frozen){
     if (frozen) { moveTo(e, e.tx, e.ty, ourSpeed(e) * .6, dt); return; }
     const arrived = moveTo(e, e.tx, e.ty, ourSpeed(e), dt);
     if (arrived) {
+      // keep moving: covered for a moment, or done waiting at this spot, go find the next one for his position
       if (!isOpen(i)) e.cover += dt; else e.cover = 0;
-      if (e.cover > .55) {                                   // covered: find another spot
-        const taken = new Set(M.our.map(o => o.spot));
-        const choices = OUR_SPOTS.map((s, k) => k).filter(k => !taken.has(k) && k !== e.spot);
-        e.spot = pick(choices); e.tx = OUR_SPOTS[e.spot].x + rnd(-1.5, 1.5); e.ty = OUR_SPOTS[e.spot].y + rnd(-1.5, 1.5); e.cover = 0;
-      }
+      e.wait = (e.wait ?? 1) - dt;
+      if (e.cover > .55 || e.wait <= 0) relocate(e, M.our, i);
     }
   });
   guardOurs(dt);
@@ -2137,8 +2169,11 @@ function updateOpp(dt){
   const P = M.oppPlan;
   M.th.forEach(e => {
     if (e.shootT > 0 || (M.oshot && M.oshot.h === e)) { e.moving = false; e.still = (e.still || 0) + dt; return; }   // a shooter stays planted
-    moveTo(e, e.tx, e.ty, oppSpeed(e) * (M.ball.holder && M.ball.holder.side === 'them' && M.th[M.ball.holder.i] === e ? BALL_SLOW : 1), dt);
+    const hasBall = M.ball.holder && M.ball.holder.side === 'them' && M.th[M.ball.holder.i] === e;
+    const arrived = moveTo(e, e.tx, e.ty, oppSpeed(e) * (hasBall ? BALL_SLOW : 1), dt);
     e.still = e.moving ? 0 : (e.still || 0) + dt;
+    // off the ball they keep moving too, each to the kind of spot his position likes
+    if (!hasBall && arrived && (M.phase === 'opp' || M.phase === 'opass')) { e.wait = (e.wait ?? 1) - dt; if (e.wait <= 0) relocateThem(e, M.th.indexOf(e)); }
   });
   // their shot is in the air: our two nearest the rim box out in front of it
   const F = M.ball.fl;
@@ -2290,7 +2325,10 @@ function updateBall(dt){
     }
     give('us', F.target); rec.spot = -1;
     if (rec.x < 47.5) { rec.tx = OUR_SPOTS[0].x; rec.ty = 25; M.phase = 'back'; }          // still in the backcourt: bring it up
-    else M.phase = 'live';                                          // he keeps going where he was cutting
+    else {
+      M.phase = 'live';                                             // he keeps going where he was cutting
+      if (rec.p.pos === 'PF') { rec.tx = RIM_R.x - rnd(3.5, 5); rec.ty = RIM_R.y + rnd(-3.5, 3.5); }   // a PF with the ball drives at the rim
+    }
     return;
   }
   if (F.kind === 'fumble') {                                      // it hit the floor: now it rolls on
@@ -2478,9 +2516,11 @@ function draw(){
     ...M.th.map(e => ({ y:e.y, f:() => drawPlayer(e, M.uni.them, null) })),
     { y:25.01, f:() => { drawHoop(0, M.flash > 0 && B.x < 47); drawHoop(1, M.flash > 0 && B.x > 47); } },
     { y:-2, f:() => { drawBench('us'); drawBench('them'); } },
+    // the ball sorts in with the players: a dribbled ball sits just behind its dribbler, so anyone level with
+    // or in front of him covers it instead of the ball floating on top of them
+    { y:(() => { const h = holderEnt(); return h ? h.y - .4 : B.y; })(), f:() => drawBall(B.x, B.y, B.z) },
   ].sort((a, b) => a.y - b.y);
   ents.forEach(x => x.f());
-  drawBall(B.x, B.y, B.z);
 }
 function loop(now){
   const dt = clamp((now - lastT) / 1000, 0, .05); lastT = now;
