@@ -97,6 +97,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .card .fa-x div{display:flex;justify-content:space-between;gap:4px;white-space:nowrap}
 .card .fa-x span{color:#cfe0ff}
 .card .fa-x b{color:var(--white);font-size:12px}
+.card .fa-x .sh{display:none}                                       /* short labels, for narrow phone cards */
 .card .fnm{font-family:var(--px);font-size:9px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card .sal{font-family:var(--px);font-size:12px}
 .card.dim{opacity:.45}
@@ -203,6 +204,64 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .shootbtn{position:absolute;right:12px;bottom:12px;width:138px;height:138px;border-radius:50%;font-size:20px;padding:0;touch-action:none;-webkit-touch-callout:none;z-index:4}
 .shootbtn:active{transform:translateY(3px)}
 .tip{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-family:var(--px);font-size:10px;text-align:center;color:#fff;text-shadow:0 2px 0 #000;pointer-events:none;max-width:60%}
+
+/* free agents: tabs by position, one row of cards */
+.fatabs{gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.cards.farow{grid-template-columns:repeat(var(--n),minmax(0,1fr))}
+/* post-game: result | money | fans + continue */
+.post3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,.9fr);gap:12px;align-items:start}
+
+/* Phones sideways (iPhone 14 landscape leaves about 750 x 369 to work with): every screen but the
+   stats lists fits on one screen, so spacing, type and art all tighten up. */
+@media (max-height:500px){
+  #ui{padding-block:6px 8px;padding-inline:10px}
+  .bar{margin-bottom:6px;gap:8px}
+  .title{font-size:18px}
+  .box{padding:2px 8px;font-size:12px;border-width:2px}
+  .icon{width:34px;height:30px;font-size:15px}
+  .btn{padding:6px 10px;font-size:12px;box-shadow:0 3px 0 var(--navy)}
+  .btn.sm{padding:4px 7px;font-size:11px}
+  .panel{padding:6px 9px;border-width:2px}
+  .label{font-size:10px}
+  .hub{gap:8px}
+  .menu{gap:6px}.menu .btn{padding:9px 4px}
+  .chips{margin-top:6px;gap:6px}.chip{padding:3px 4px;border-width:2px}
+  .vs{margin:2px 0 6px}
+  .badge{width:36px;height:36px;font-size:11px}
+  /* cards */
+  .cards{gap:6px}
+  .card{border-width:2px;box-shadow:0 3px 0 var(--navy)}
+  .card .top{height:44px}.card .top img{width:40px;height:40px}
+  .card .pos{font-size:10px}.card .age{font-size:9px}
+  .card .bot{padding:2px 3px 3px;border-top-width:2px}
+  .card .nm,.card .sal{font-size:10px}.card .fnm{font-size:8px}
+  .card .fa-x,.card .fa-x b{font-size:10px}
+  .card .fa-x .lg{display:none}.card .fa-x .sh{display:inline}.card .fa-x b{letter-spacing:-.02em}
+  .card .stars{font-size:11px;letter-spacing:0}
+  .card:has(.flag) .bot{padding-bottom:16px}.card .flag{font-size:8px;padding:1px}
+  .capbar{margin-top:6px;gap:6px}.cap{padding:2px 6px;border-width:2px}.cap .t{font-size:9px;margin-bottom:2px}.cap .track{height:8px}
+  .fatabs{margin-bottom:6px}.fanote{display:none}
+  /* tables (standings) */
+  table{font-size:12px}th{padding:1px 4px;font-size:9px}td{padding:0 4px;border-top-width:1px;line-height:1.3}
+  td .stars{font-size:10px;letter-spacing:0}
+  /* player page */
+  .pp{grid-template-columns:130px minmax(0,1fr);gap:10px}
+  .pp .face .top{height:84px}.pp .face img{width:80px;height:80px}
+  .pp .face .bot{padding:4px}
+  .rt{margin-bottom:4px;grid-template-columns:78px minmax(0,1fr) 36px auto;gap:6px}
+  .rt .nm{font-size:10px}.segs i{height:10px}
+  .rt + .muted{display:none}                                           /* rating descriptions */
+  .pst{font-size:11px}.pst td,.pst th{padding:1px 4px}
+  /* team picker */
+  .tgrid{gap:4px}.tpick{padding:2px 4px;gap:4px}.tpick .tn{font-size:9px;line-height:1.05}.tpick .tn b{font-size:8px}
+  .badge.sm{width:22px;height:22px;font-size:7px}
+  /* uniforms */
+  .kitimg{width:78px;padding:3px 6px}.kitp{gap:4px}
+  /* post-game */
+  .post3{gap:8px}.post3 .panel{font-size:12px !important}
+  .post3 .px.num{font-size:22px !important}
+  .sheet{padding:10px}.sheet .inner{gap:6px}
+}
 
 #rotate{display:none;position:fixed;inset:0;z-index:100;background:var(--blue);align-items:center;justify-content:center;text-align:center;padding:24px}
 #rotate .in{display:grid;gap:14px;justify-items:center}
@@ -830,9 +889,9 @@ function card(p, opts = {}){
   return `<button class="card ${opts.dim ? 'dim' : ''}" ${opts.attr || ''}>
     <div class="top ${posColor(p.pos)}"><span class="pos">${p.pos}</span><span class="age">${p.age}</span><img src="${portrait(p, t.c1)}" alt=""></div>
     <div class="bot"><div class="fnm">${esc(p.fn)}</div><div class="nm">#${p.num} ${esc(p.ln)}</div><div>${starsHTML(opts.stars ?? pStars(p))}</div>${opts.fa ? `<div class="fa-x">
-      <div><span>Salary:</span><b class="num">${money(askSalary(p))} × ${askYears(p)}yr</b></div>
-      <div><span>Signing bonus:</span><b class="num">${money(signBonus(p))}</b></div>
-      <div><span>Per game:</span><b class="num">${money(askSalary(p) / PAY_GAMES)}</b></div></div>`
+      <div><span><span class="lg">Salary:</span><span class="sh">Sal</span></span><b class="num">${money(askSalary(p))}<span class="lg"> × </span><span class="sh">×</span>${askYears(p)}yr</b></div>
+      <div><span><span class="lg">Signing bonus:</span><span class="sh">Bonus</span></span><b class="num">${money(signBonus(p))}</b></div>
+      <div><span><span class="lg">Per game:</span><span class="sh">/game</span></span><b class="num">${money(askSalary(p) / PAY_GAMES)}</b></div></div>`
     : `<div class="sal">${money(p.sal || askSalary(p))}${opts.yrs ? `<span class="muted"> ×${p.yrs}</span>` : ''}</div>`}</div>
     ${opts.flag ? `<div class="flag">${opts.flag}</div>` : ''}
   </button>`;
@@ -981,21 +1040,24 @@ function draftHTML(){
     ${capBar(`<button class="btn" data-go="roster">Roster</button><div class="box" style="text-align:center"><div class="label">Picks</div><div class="num">${O.picks}</div></div><button class="btn go icon" data-a="draftDone" aria-label="Done">➜</button>`)}
     <div class="muted" style="font-size:12px;margin-top:6px">Tap a prospect to see him. Drafting replaces your player at that position. Ratings shown within ±${err}.</div>`;
 }
+let faPos = 'PG';                                                    // free agents are shown one position at a time
 function faHTML(){
   const room = capNow() - payroll();
-  const list = [...G.fa].sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || pAvg(b) - pAvg(a));
+  const list = G.fa.filter(p => p.pos === faPos).sort((a, b) => pAvg(b) - pAvg(a));
+  const tabs = POS.map(pos => `<button class="btn sm ${pos === faPos ? 'go' : ''}" data-a="faPos" data-p="${pos}">${pos} <span class="num">${G.fa.filter(p => p.pos === pos).length}</span></button>`).join('');
   return `${topBar('Free agents', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
-    <div class="cards">${list.map(p => { const need = signBonus(p); const cur = G.roster[p.pos]; const newPay = payroll() - (cur ? cur.sal : 0) + askSalary(p);
+    <div class="row fatabs">${tabs}<span class="muted grow" style="font-size:12px;text-align:right">Your ${faPos}: ${G.roster[faPos] ? `${esc(G.roster[faPos].ln)} ${starsHTML(pStars(G.roster[faPos]))}` : 'empty'}</span></div>
+    <div class="cards farow" style="--n:${Math.max(5, list.length)}">${list.length ? '' : '<div class="muted">No free agents at this position right now.</div>'}${list.map(p => { const need = signBonus(p); const cur = G.roster[p.pos]; const newPay = payroll() - (cur ? cur.sal : 0) + askSalary(p);
       const why = G.cash < need ? `NEEDS <span class="num">${money(need)}</span> CASH` : newPay > capNow() ? 'NO CAP ROOM' : ''; return card(p, { attr:`data-fa="${p.id}"`, dim:!!why, flag:why, fa:true }); }).join('')}</div>
     ${capBar(`<div class="box" style="text-align:center"><div class="label">Cash</div><div class="num ${G.cash < 0 ? 'debt' : ''}">${money(G.cash)}</div></div>`)}
-    <div class="muted" style="font-size:12px;margin-top:6px">Signing someone replaces your player at that position. You pay his signing bonus in cash when he signs, then 1/17 of his salary every game. Cap room: <span class="num">${money(room)}</span>.</div>`;
+    <div class="muted fanote" style="font-size:12px;margin-top:6px">Signing replaces your player at that position. Bonus is paid up front, then 1/17 of the salary every game. Cap room: <span class="num">${money(room)}</span>.</div>`;
 }
 function leagueHTML(){
   const table = conf => `<div class="panel" style="overflow-x:auto"><div class="label" style="margin-bottom:4px">${conf === 'E' ? 'East' : 'West'}</div><table><thead><tr><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Team</th></tr></thead><tbody>
     ${confStandings(conf).map((t, i) => `<tr class="${t.user ? 'me' : ''} ${i === 4 ? 'cut' : ''}"><td>${i + 1}. ${esc(t.abbr)} ${esc(t.name)}</td><td class="num">${t.w}</td><td class="num">${t.l}</td><td class="num">${t.pf - t.pa > 0 ? '+' : ''}${t.pf - t.pa}</td><td>${starsHTML(teamR(t).stars)}</td></tr>`).join('')}
     </tbody></table></div>`;
   return `${topBar('Standings', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
-    <div class="hub">${table('E')}${table('W')}</div><div class="muted" style="font-size:12px;margin-top:6px">Top 4 in each conference make the playoffs.</div>`;
+    <div class="hub">${table('E')}${table('W')}</div><div class="muted fanote" style="font-size:12px;margin-top:6px">Top 4 in each conference make the playoffs.</div>`;
 }
 // every player on a team this season, ranked by any stat; per-game stats and percentages from p.s
 const LCOLS = [
@@ -1083,14 +1145,14 @@ function postHTML(){
   const L = G.last; if (!L) return hubHTML();
   const o = teamById(L.opp), t = userTeam();
   return `${topBar(L.win ? '<span class="good">Win</span>' : '<span class="bad">Loss</span>')}
-    <div class="hub">
+    <div class="post3">
       <div class="panel"><div class="vs">
         <div class="t">${badge(t)}<div class="px num" style="font-size:28px">${L.us}</div></div><div class="px muted">FINAL</div>
         <div class="t">${badge(o)}<div class="px num" style="font-size:28px">${L.them}</div></div></div>
         ${L.top.map(x => `<div class="row between" style="font-size:14px"><span>${x.pos} ${esc(x.name)}</span><span class="px num">${x.pts} PTS</span></div>`).join('')}
       </div>
-      <div class="stack">
-        ${L.pay ? postMoney(L) : ''}
+      ${L.pay ? postMoney(L) : '<div></div>'}
+      <div class="stack" style="align-content:start">
         <div class="panel" style="font-size:14px">
           <div class="label" style="margin-bottom:4px">Fans</div>
           <div class="row between"><span>${L.win ? 'Win' : 'Loss'}</span><span class="${L.fanResult >= 0 ? 'good' : 'bad'} num">${L.fanResult >= 0 ? '+' : ''}${L.fanResult}%</span></div>
@@ -1186,6 +1248,7 @@ $('#ui').addEventListener('click', ev => {
   else if (act === 'simPlayoffs') { resolvePlayoffs(null); if (G.phase === 'playoffs') resolvePlayoffs(null); save(); render(); }
   else if (act === 'settings') speedSheet();
   else if (act === 'capUp') { if (G.credits >= CAP_COST && capNow() < CAP_MAX) { G.credits -= CAP_COST; G.cap = Math.min(CAP_MAX, capNow() + CAP_STEP); save(); render(); toast(`Salary cap is now ${money(G.cap)}.`); } }
+  else if (act === 'faPos') { faPos = a.dataset.p; render(); }
   else if (act === 'lsort') { const k = a.dataset.k; if (lead.k === k) lead.asc = !lead.asc; else { lead.k = k; lead.asc = k === 'tov'; } render(); }
   else if (act === 'offNext') { O.step = O.step === 'summary' ? 'resign' : O.step === 'resign' ? 'draft' : 'fa'; save(); render(); }
   else if (act === 'resign') { const p = G.roster[a.dataset.pos]; const price = resignPrice(p), np = payroll() - p.sal + price; if (np > capNow()) { toast('Not enough cap room.'); return; } p.sal = price; p.yrs = askYears(p); save(); render(); }
