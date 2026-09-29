@@ -73,6 +73,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .num,.sal,.card .age{font-family:var(--numf);font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:0}
 .stars{color:var(--yellow);letter-spacing:1px;text-shadow:1px 1px 0 #6b4a00}
 .stars .off{color:#8c93a3;text-shadow:none}
+.stars .half{position:relative;display:inline-block;color:#8c93a3;text-shadow:none}
+.stars .half::before{content:'★';position:absolute;left:0;top:0;width:50%;overflow:hidden;color:var(--yellow);text-shadow:1px 1px 0 #6b4a00}
 
 /* --- hub --- */
 .hub{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
@@ -209,6 +211,12 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .shootbtn:active{transform:translateY(3px)}
 .tip{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-family:var(--px);font-size:10px;text-align:center;color:#fff;text-shadow:0 2px 0 #000;pointer-events:none;max-width:60%}
 
+/* save slots */
+.slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:820px;margin:0 auto}
+.slot{display:grid;gap:8px;align-content:start}
+.slot-team{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-empty{font-family:var(--px);font-size:16px;text-align:center;padding:22px 0}
+.slot-meta{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:#cfe0ff}
 /* free agents: tabs by position, one row of cards */
 .fatabs{gap:6px;margin-bottom:8px;flex-wrap:wrap}
 .cards.farow{grid-template-columns:repeat(var(--n),minmax(0,1fr))}
@@ -217,15 +225,18 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 
 /* Edge to edge on notched phones: backgrounds and the court run under the notch; buttons and text stay
    clear of it (env() is 0 on computers, so nothing changes there). The notch is only ~30pt deep. */
-#ui{padding-left:max(10px,calc(env(safe-area-inset-left) - 14px));padding-right:max(10px,calc(env(safe-area-inset-right) - 14px))}
-.shootbtn{right:calc(12px + env(safe-area-inset-right) * .6);bottom:calc(12px + env(safe-area-inset-bottom) * .5)}
-.meter{left:calc(14px + env(safe-area-inset-left) * .7)}.meter.right{right:calc(14px + env(safe-area-inset-right) * .7)}
-.gbtn{right:calc(6px + env(safe-area-inset-right) * .6)}
+/* --side-*: the side margin menus use; the game uses the same (--game-side-*) so the court is exactly as wide as
+   the menus. Computers keep 16px menus and a full-width game; phones get the notch-aware margin plus 2.5% a side. */
+:root{--side-l:16px;--side-r:16px;--game-side-l:0px;--game-side-r:0px}
+#ui{padding-left:var(--side-l);padding-right:var(--side-r)}
+#game{padding-left:var(--game-side-l);padding-right:var(--game-side-r);box-sizing:border-box}
 
 /* Phones sideways (iPhone 14 landscape leaves about 750 x 369 to work with): every screen but the
    stats lists fits on one screen, so spacing, type and art all tighten up. */
 @media (max-height:500px){
-  #ui{padding-block:6px 8px}                                           /* sides come from the notch-aware rule above */
+  :root{--side-l:calc(max(10px, env(safe-area-inset-left) - 14px) + 2.5vw);--side-r:calc(max(10px, env(safe-area-inset-right) - 14px) + 2.5vw);
+        --game-side-l:var(--side-l);--game-side-r:var(--side-r)}
+  #ui{padding-block:6px 8px}                                           /* sides come from --side-l / --side-r */
   .bar{margin-bottom:6px;gap:8px}
   .title{font-size:18px}
   .box{padding:2px 8px;font-size:12px;border-width:2px}
@@ -251,7 +262,7 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
   .card .stars{font-size:11px;letter-spacing:0}
   .card:has(.flag) .bot{padding-bottom:16px}.card .flag{font-size:8px;padding:1px}
   .capbar{margin-top:6px;gap:6px}.cap{padding:2px 6px;border-width:2px}.cap .t{font-size:9px;margin-bottom:2px}.cap .track{height:8px}
-  .fatabs{margin-bottom:6px}.fanote{display:none}
+  .fatabs{margin-bottom:6px}.fanote,.intro{display:none}
   /* tables (standings) */
   table{font-size:12px}th{padding:1px 4px;font-size:9px}td{padding:0 4px;border-top-width:1px;line-height:1.2}
   td .stars{font-size:10px;letter-spacing:0}
@@ -461,7 +472,8 @@ function fitStars(shape, st){
 function starsHTML(s){
   const full = Math.floor(s), half = s - full >= .5;
   let h = '';
-  for (let i = 0; i < 5; i++) h += i < full ? '★' : (i === full && half ? '⯪' : '<span class="off">★</span>');
+  // a half star is a grey star with its left half painted gold (the "half star" symbol shows as a box on iPhone)
+  for (let i = 0; i < 5; i++) h += i < full ? '★' : (i === full && half ? '<span class="half">★</span>' : '<span class="off">★</span>');
   return `<span class="stars">${h}</span>`;
 }
 function makePlayer(pos, target, age = ri(20, 32)){
@@ -611,13 +623,37 @@ function uniqueNum(p){
   const taken = new Set(POS.map(pos => G.roster[pos]).filter(x => x && x !== p).map(x => x.num));
   while (taken.has(p.num)) p.num = ri(0, 55);
 }
-const CACHE = 'retrobasket.save.v1';
+/* ---- save slots: 3 separate games. Each lives in this device's storage (and in the artifact's database when
+   there is one). The old single save becomes slot 1. ---- */
+const CACHE = 'retrobasket.save.v1', SLOTS = 3;
+const slotKey = n => `retrobasket.slot${n}`;
+let SLOT = null, slotRemote = {};                                      // slotRemote: slots found in the database
 let DB = null, saveT = null, chain = Promise.resolve();
+function slotRaw(n){ let raw = null; try { raw = localStorage.getItem(slotKey(n)); } catch {} return raw || slotRemote[n] || null; }
+function slotInfo(n){
+  const raw = slotRaw(n); if (!raw) return null;
+  try { const g = JSON.parse(raw), t = (g.league || []).find(x => x.user);
+    return t ? { team:`${t.city} ${t.name}`, t, season:g.season, w:t.w, l:t.l, cash:g.cash, phase:g.phase } : null; } catch { return null; }
+}
 function save(){
-  try { localStorage.setItem(CACHE, JSON.stringify(G)); } catch {}
+  if (!SLOT || !G) return;
+  const json = JSON.stringify(G), n = SLOT;
+  try { localStorage.setItem(slotKey(n), json); } catch {}
   if (!DB) return;
   clearTimeout(saveT);
-  saveT = setTimeout(() => { const body = { json:JSON.stringify(G), at:Date.now() }; chain = chain.then(() => DB.doc('saves/main').set(body)).catch(e => console.warn(e)); }, 600);
+  saveT = setTimeout(() => { chain = chain.then(() => DB.doc('saves/slot' + n).set({ json, at:Date.now() })).catch(e => console.warn(e)); }, 600);
+}
+function resetSlot(n){
+  clearTimeout(saveT);                                               // a queued database save must not bring it back
+  try { localStorage.removeItem(slotKey(n)); } catch {}
+  delete slotRemote[n];
+  if (DB) DB.doc('saves/slot' + n).set({ json:'', at:Date.now() }).catch(() => {});
+}
+function openSlot(n){
+  SLOT = n; const raw = slotRaw(n);
+  G = null; screen = 'hub'; pickedTeam = null;
+  if (raw) { try { G = migrate(JSON.parse(raw)); } catch { G = null; } }
+  render();
 }
 
 /* ============================ league sim ============================ */
@@ -916,7 +952,8 @@ function capBar(extra = ''){
 
 function render(){
   const ui = $('#ui');
-  if (!G) { ui.innerHTML = createHTML(); bindCreate(); return; }
+  if (SLOT === null || screen === 'slots') { ui.innerHTML = slotsHTML(); ui.dataset.screen = 'slots'; ui.scrollTop = 0; return; }
+  if (!G) { ui.innerHTML = createHTML(); bindCreate(); ui.dataset.screen = 'create'; ui.scrollTop = 0; return; }
   const f = { kit:kitHTML, roster:rosterHTML, player:playerHTML, league:leagueHTML, office:officeHTML, fa:faHTML, leaders:leadersHTML, post:postHTML, draft:draftHTML }[screen] || hubHTML;
   ui.innerHTML = f();
   window.scrollTo(0, 0); ui.scrollTop = 0;                           // the phone app scrolls #ui, not the page
@@ -932,10 +969,25 @@ function createHTML(){
       <span class="tn">${esc(T.city)}<br><b>${esc(T.name)}</b></span></button>`).join('');
   const T = NBA.find(x => x.abbr === pickedTeam);
   return `<div class="title" style="margin-bottom:8px">RETRO BASKET</div>
-    <div class="muted" style="text-align:center;margin-bottom:10px">Pick your team. You take over the franchise with five 1-star players. 150 all-time legends are scattered across the league, and 30 of them are free agents waiting to sign.</div>
+    <div class="muted intro" style="text-align:center;margin-bottom:10px">Pick your team. You take over the franchise with five 1-star players. 150 all-time legends are scattered across the league, and 30 of them are free agents waiting to sign.</div>
     <div class="hub"><div class="panel"><div class="label" style="margin-bottom:6px">East</div><div class="tgrid">${col('E')}</div></div>
     <div class="panel"><div class="label" style="margin-bottom:6px">West</div><div class="tgrid">${col('W')}</div></div></div>
-    <div class="row" style="margin-top:10px"><div class="grow muted">${T ? `${esc(T.city)} ${esc(T.name)} · ${T.conf === 'E' ? 'Eastern' : 'Western'} Conference` : 'Tap a team.'}</div><button class="btn go" id="cGo" ${T ? '' : 'disabled'}>Take the job</button></div>`;
+    <div class="row" style="margin-top:10px"><button class="btn" data-a="toSlots">Saves</button><div class="grow muted">Slot ${SLOT} · ${T ? `${esc(T.city)} ${esc(T.name)} · ${T.conf === 'E' ? 'Eastern' : 'Western'} Conference` : 'Tap a team.'}</div><button class="btn go" id="cGo" ${T ? '' : 'disabled'}>Take the job</button></div>`;
+}
+// the first screen: three save slots, each with Play (or New game) and Reset
+function slotsHTML(){
+  const cards = [1, 2, 3].map(n => {
+    const s = slotInfo(n);
+    if (!s) return `<div class="panel slot"><div class="label">Slot ${n}</div><div class="slot-empty muted">Empty</div>
+      <button class="btn go" data-a="slotPlay" data-n="${n}">New game</button></div>`;
+    const where = s.phase === 'offseason' ? 'Offseason' : s.phase === 'playoffs' ? 'Playoffs' : `${s.w}-${s.l}`;
+    return `<div class="panel slot"><div class="label">Slot ${n}</div>
+      <div class="row" style="gap:8px">${badge(s.t, 'sm')}<div class="grow" style="min-width:0"><div class="px slot-team">${esc(s.t.name)}</div><div class="muted" style="font-size:12px">${esc(s.t.city)}</div></div></div>
+      <div class="slot-meta num"><span>Season ${s.season}</span><span>${where}</span><span class="${s.cash < 0 ? 'debt' : ''}">${money(s.cash)}</span></div>
+      <div class="row" style="gap:6px"><button class="btn go grow" data-a="slotPlay" data-n="${n}">Play</button><button class="btn red sm" data-a="slotReset" data-n="${n}">Reset</button></div></div>`;
+  }).join('');
+  return `<div class="title" style="margin-bottom:10px">RETRO BASKET</div><div class="slots">${cards}</div>
+    <div class="muted" style="text-align:center;font-size:12px;margin-top:10px">Three separate careers. Saves stay on this device.</div>`;
 }
 function bindCreate(){
   document.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { pickedTeam = b.dataset.team; render(); });
@@ -981,6 +1033,7 @@ function hubHTML(){
         <button class="btn" data-go="fa">Free agents</button>
         <button class="btn" data-go="leaders">League leaders</button>
         <button class="btn" data-a="settings">Game speed ${G.speed}x</button>
+        <button class="btn" data-a="toSlots" style="grid-column:span 2">Saves · slot ${SLOT}</button>
         ${G.history.length ? `<div class="panel" style="grid-column:span 2;font-size:13px">${G.history.slice(0, 3).map(h => `<div class="row between"><span>S${h.season} · ${h.w}-${h.l}</span><span class="${h.finish === 'Champions' ? 'yellow' : 'muted'}">${esc(h.finish)}</span></div>`).join('')}</div>` : ''}
       </div>
     </div>`;
@@ -1250,6 +1303,19 @@ $('#ui').addEventListener('click', ev => {
     return;
   }
   const a = ev.target.closest('[data-a]'); if (!a) return;
+  // save slots (these work before any game is loaded)
+  if (a.dataset.a === 'slotPlay') { openSlot(+a.dataset.n); return; }
+  if (a.dataset.a === 'toSlots') { save(); SLOT = null; G = null; screen = 'slots'; render(); return; }
+  if (a.dataset.a === 'slotReset') {
+    const n = +a.dataset.n, s = slotInfo(n);
+    openSheet(`<div class="px">Delete slot ${n}?</div><div class="muted">${s ? `${esc(s.team)}, season ${s.season}` : 'This save'} will be gone for good. The slot becomes empty and you can start a new game in it.</div>
+      <div class="row"><button class="btn red grow" id="yes">Delete save</button><button class="btn" id="no">Cancel</button></div>`, sh => {
+      sh.querySelector('#no').onclick = closeSheet;
+      sh.querySelector('#yes').onclick = () => { resetSlot(n); closeSheet(); render(); toast(`Slot ${n} deleted.`); };
+    });
+    return;
+  }
+  if (!G) return;
   const act = a.dataset.a, O = G.off;
   if (act === 'play') {
     const ng = nextGameInfo();
@@ -1801,9 +1867,10 @@ let M = null, raf = 0, lastT = 0, paused = false;
 // The view is always 180 px tall; its width follows the screen's shape (16:9 is 320, an iPhone 14 sideways
 // is about 390), so wide phones see more court instead of black bars. The camera scrolls along the court.
 function fit(){
-  CW = clamp(Math.round(CH * innerWidth / innerHeight), 320, Math.min(420, WORLD_W));
+  const gs = getComputedStyle($('#game')), aw = innerWidth - parseFloat(gs.paddingLeft) - parseFloat(gs.paddingRight);   // same width as the menus
+  CW = clamp(Math.round(CH * aw / innerHeight), 320, Math.min(420, WORLD_W));
   if (cv.width !== CW * 2) { cv.width = CW * 2; cv.height = CH * 2; }
-  const s = Math.min(innerWidth / CW, innerHeight / CH);
+  const s = Math.min(aw / CW, innerHeight / CH);
   cv.style.width = Math.floor(CW * s) + 'px'; cv.style.height = Math.floor(CH * s) + 'px';
 }
 addEventListener('resize', () => { if (M) fit(); });
@@ -1887,18 +1954,32 @@ function startTheirs(fromX, fromY, inbound){
 }
 function nearestIdx(arr, pt){ let b = 0, bd = 1e9; arr.forEach((e, i) => { const d = dist(e, pt); if (d < bd) { bd = d; b = i; } }); return b; }
 
+// 0:00. A shot already in the air plays out: a make counts, a miss bounces off the rim and hits the floor,
+// then the quarter ends (no rebound). Anything else (dribbling, a pass, a loose ball, a meter still being held)
+// ends the quarter on the spot.
+function buzzer(){
+  M.clock = 0;
+  if (M.buzzer) return;                                             // a buzzer shot is already playing out
+  const F = M.ball.fl;
+  if (F && F.kind === 'shot') { M.buzzer = true; return; }
+  if (F && F.kind === 'drop') return;                               // it went in just before: the next possession ends it
+  M.shooting = null; M.oshot = null; M.ball.fl = null; M.reb = null;
+  endQuarter();
+}
 function checkQuarterEnd(){
   if (M.clock > 0) return false;
   endQuarter(); return true;
 }
 function endQuarter(){
+  if (M.phase === 'break' || M.phase === 'done') return;              // already over (a leftover timer can call again)
+  M.clock = Math.max(0, M.clock);
   const q = M.q, final = q >= 4 && M.us !== M.them;
   M.phase = final ? 'done' : 'break'; hideMeter(); hideMeter('o');
   const title = final ? 'FINAL' : q === 1 ? 'END OF 1ST' : q === 2 ? 'HALFTIME' : q === 3 ? 'END OF 3RD' : q === 4 ? 'END OF REGULATION' : 'END OF OT';
   const span = final ? 'Full game' : q === 1 ? '1st quarter' : q === 2 ? '1st half' : q === 3 ? 'Quarters 1–3' : 'Full game so far';
   showStats(title, span, final ? 'Finish' : q >= 4 ? 'OT' : 'Q' + (q + 1), () => {
     if (final) { finishLive(M.id); return; }
-    M.q++; M.clock = M.q > 4 ? 300 : 900;
+    M.q++; M.clock = M.q > 4 ? 300 : 900; M.buzzer = false;
     [...M.our, ...M.th].forEach(e => { e.fat0 = Math.max(0, (e.fat || 0) - .05); e.fat = e.fat0; });   // 5% back at each break
     M.q % 2 === 1 ? startOurs(10, 25, true) : startTheirs(84, 25, true);
     hud();
@@ -1991,7 +2072,7 @@ function update(dt){
   else if (M.phase === 'reb') updateReb(dt);
   updateBall(dt);
   if ((M.phase === 'live' || M.phase === 'back') && M.shot <= 0) { turnover('SHOT CLOCK'); }
-  else if ((M.phase === 'live' || M.phase === 'back') && M.clock <= 0) { M.phase = 'break'; endQuarter(); }
+  else if (M.clock <= 0 && ['back', 'live', 'pass', 'shot', 'opp', 'opass', 'oshot', 'reb'].includes(M.phase)) buzzer();
   if (M && M.shooting && !M.shooting.released) {
     const t = (performance.now() - M.shooting.t0) / 1000;
     showMeter(meterFill(t));
@@ -2222,7 +2303,7 @@ function updateBall(dt){
     setTimeout(() => { if (!M || M.id !== id) return; side === 'us' ? startTheirs(91, 25, true) : startOurs(3, 25, true); }, 450);
     return;
   }
-  if (F.kind === 'bounce') { M.reb.landed = true; M.reb.bt = 0; return; }
+  if (F.kind === 'bounce') { if (M.reb) { M.reb.landed = true; M.reb.bt = 0; } return; }   // no M.reb after a buzzer miss
   if (F.kind === 'loose') {                                        // the other side's ball, inbounded from where it went out
     const id = M.id, at = { x:F.to.x, y:clamp(F.to.y, 1, 49) }, ours = F.to_us;
     setTimeout(() => { if (!M || M.id !== id) return; ours ? startOurs(at.x, at.y, false) : startTheirs(at.x, at.y, false); }, 600);
@@ -2247,6 +2328,12 @@ function startRebound(F){
   M.reb = { pt, shotSide:F.side, landed:!!F.air, bt:0 };
   if (!F.air) B.fl = { kind:'bounce', from:{ x:B.x, y:B.y, z:B.z }, to:{ x:pt.x, y:pt.y, z:.4 }, t:0, dur:.5 + dist(B, pt) * .02, peak:3.5 };
   if (F.side === 'us') banner(F.air ? 'AIRBALL' : 'MISS', '', 800);
+  if (M.buzzer) {                                                   // a missed buzzer shot: watch it bounce, then the quarter is over
+    M.phase = 'pause'; M.reb = null;
+    const id = M.id, wait = (F.air ? 0 : (.5 + dist(B, pt) * .02) * 1000) + 700;
+    setTimeout(() => { if (M && M.id === id) { M.ball.fl = null; endQuarter(); } }, wait);
+    return;
+  }
   M.phase = 'reb';
 }
 // Rebounds are a race: everyone nearby runs at the ball at their own speed and the first one there gets it.
@@ -2402,15 +2489,28 @@ function loop(now){
 }
 
 /* ============================ boot ============================ */
-try { const raw = localStorage.getItem(CACHE); if (raw) G = migrate(JSON.parse(raw)); } catch {}
-render();
+// the old single save moves into slot 1 (once), then the game opens on the save-slot screen
+try {
+  const old = localStorage.getItem(CACHE);
+  if (old) { if (!localStorage.getItem(slotKey(1))) localStorage.setItem(slotKey(1), old); localStorage.setItem(CACHE + '.migrated', old); localStorage.removeItem(CACHE); }
+} catch {}
+screen = 'slots'; render();
 (async () => {
   const use = window.claude?.use; if (!use) return;
   DB = await use('db').catch(() => null); if (!DB) return;
   try {
-    const snap = await DB.doc('saves/main').get();
-    if (snap.exists) { const r = JSON.parse(snap.data().json); if (r && r.v && r.v < 2) { DB.doc('saves/legacy').set(snap.data()).catch(() => {}); } if (r && r.v >= 2) { G = migrate(r); try { localStorage.setItem(CACHE, snap.data().json); } catch {} if (!M) { screen = 'hub'; render(); } } }
-    else if (G) save();
+    for (let n = 1; n <= SLOTS; n++) {
+      const snap = await DB.doc('saves/slot' + n).get();
+      if (snap.exists && snap.data().json) slotRemote[n] = snap.data().json;
+    }
+    if (!slotRaw(1)) {                                                // the old database save becomes slot 1
+      const main = await DB.doc('saves/main').get();
+      if (main.exists && main.data().json) {
+        const j = main.data().json, r = JSON.parse(j);
+        if (r && r.v >= 2) { slotRemote[1] = j; await DB.doc('saves/slot1').set({ json:j, at:Date.now() }); await DB.doc('saves/main').set({ json:'', moved:'slot1', at:Date.now() }); }   // moved, so a reset stays reset
+      }
+    }
+    if (!M && SLOT === null) render();
   } catch (e) { console.warn(e); }
 })();
 })();
