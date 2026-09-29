@@ -169,10 +169,14 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .banner{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-family:var(--px);font-weight:700;font-size:26px;text-shadow:0 3px 0 #000,0 0 14px rgba(0,0,0,.6);text-align:center;pointer-events:none;white-space:nowrap}
 .banner small.big{font-size:30px;color:#fff;margin-top:6px}
 .banner small{display:block;font-size:13px;color:var(--yellow);margin-top:4px}
-.meter{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:22px;height:46%;border:3px solid #fff;border-radius:4px;background:#0b1433;pointer-events:none;box-shadow:0 3px 0 #000}
-.meter i{position:absolute;left:0;right:0;bottom:0;height:0}
-.meter .pct{position:absolute;left:30px;bottom:-4px;font-family:var(--px);font-weight:700;font-size:14px;text-shadow:0 2px 0 #000;white-space:nowrap}
-.meter.right{left:auto;right:14px}
+/* Shot meter: a slim bar sitting right above the SHOOT button (between it and the basket we attack), so the
+   thumb and the eyes are in the same corner. The other team's meter mirrors it bottom-left, by their basket.
+   --sb: button size, --sb-r / --sb-b: button's right and bottom offsets, --mw / --mh: meter size. */
+:root{--sb:138px;--sb-r:calc(12px + env(safe-area-inset-right) * .7);--sb-l:calc(12px + env(safe-area-inset-left) * .7);--sb-b:calc(12px + env(safe-area-inset-bottom) * .5);--mw:14px;--mh:150px}
+.meter{position:absolute;right:calc(var(--sb-r) + (var(--sb) - var(--mw)) / 2);bottom:calc(var(--sb-b) + var(--sb) + 12px);width:var(--mw);height:var(--mh);border:2px solid #fff;border-radius:4px;background:#0b1433;pointer-events:none;box-shadow:0 2px 0 #000;overflow:visible}
+.meter i{position:absolute;left:0;right:0;bottom:0;height:0;border-radius:2px}
+.meter .pct{position:absolute;right:calc(var(--mw) + 8px);bottom:-3px;font-family:var(--numf);font-weight:700;font-size:12px;text-shadow:0 2px 0 #000;white-space:nowrap}
+.meter.right{right:auto;left:calc(var(--sb-l) + (var(--sb) - var(--mw)) / 2)}
 .stats[hidden]{display:none}
 .stats{position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,14,40,.55);z-index:5}
 .st-card{border:3px solid #fff;border-radius:8px;background:var(--blue-d);padding:10px 16px 12px;box-shadow:0 5px 0 var(--navy);width:min(430px,92%);display:grid;gap:6px;text-align:center}
@@ -187,7 +191,7 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .st-table td{padding:4px 6px;border-top:2px solid rgba(255,255,255,.15);font-variant-numeric:tabular-nums;font-family:var(--px);font-size:13px}
 .st-table td.u{text-align:left}.st-table td.v{text-align:right}
 .st-table .pc{color:#cfe0ff;font-size:11px}
-.meter.right .pct{left:auto;right:30px}
+.meter.right .pct{right:auto;left:calc(var(--mw) + 8px)}
 .kitp{display:grid;gap:8px;justify-items:center}
 .kitp .row{width:100%}
 .kitimg{width:112px;height:auto;image-rendering:pixelated;background:#d49a5c;border:3px solid #fff;border-radius:6px;padding:6px 10px}
@@ -231,9 +235,8 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 #ui{padding-left:var(--side-l);padding-right:var(--side-r)}
 #game{padding-left:var(--game-side-l);padding-right:var(--game-side-r);box-sizing:border-box}
 /* the court runs under the notch, but the buttons and meters on top of it stay clear of it */
-.shootbtn{right:calc(12px + env(safe-area-inset-right) * .7);bottom:calc(12px + env(safe-area-inset-bottom) * .5)}
+.shootbtn{width:var(--sb);height:var(--sb);right:var(--sb-r);bottom:var(--sb-b)}
 .gbtn{right:calc(6px + env(safe-area-inset-right) * .7)}
-.meter{left:calc(14px + env(safe-area-inset-left) * .8)}.meter.right{left:auto;right:calc(14px + env(safe-area-inset-right) * .8)}
 
 /* Phones sideways (iPhone 14 landscape leaves about 750 x 369 to work with): every screen but the
    stats lists fits on one screen, so spacing, type and art all tighten up. */
@@ -290,7 +293,9 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
   .post3 .px.num{font-size:22px !important}
   .sheet{padding:10px}.sheet .inner{gap:6px}
   /* in the game: a thumb-sized SHOOT button instead of the big desktop one */
-  .shootbtn{width:76px;height:76px;font-size:12px;border-width:2px;box-shadow:0 3px 0 var(--navy)}
+  :root{--sb:76px;--mw:10px;--mh:100px}                               /* phone: small button, slim meter above it */
+  .shootbtn{font-size:12px;border-width:2px;box-shadow:0 3px 0 var(--navy)}
+  .meter .pct{font-size:10px}
 }
 
 #rotate{display:none;position:fixed;inset:0;z-index:100;background:var(--blue);align-items:center;justify-content:center;text-align:center;padding:24px}
