@@ -1,0 +1,2332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- no zooming; the game fills the screen -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<!-- opened from the home screen: no Safari bars, black status bar -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Retro Basket">
+<meta name="theme-color" content="#0b1433">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  html,body{overscroll-behavior:none;touch-action:manipulation;-webkit-text-size-adjust:100%}   /* no bounce, no double-tap zoom */
+</style>
+<script>
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+<title>Retro Basket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen:wght@400;700&family=Roboto+Mono:wght@500;700&display=swap">
+<style>
+:root{
+  --blue:#2f5fd8; --blue-d:#2149b4; --blue-dd:#17348a; --navy:#0f1f55;
+  --white:#ffffff; --yellow:#ffd23f; --yellow-d:#c99a12; --red:#e24b3b; --green:#44c45d; --gray:#4d525e; --gray-d:#383c46;
+  --px:"Silkscreen","Courier New",monospace;
+  --numf:"Roboto Mono",ui-monospace,Consolas,monospace;
+  --body:"Pixelify Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--blue);color:var(--white);height:100%}
+body{margin:0;font:15px/1.3 var(--body);overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.px{font-family:var(--px)}
+#ui{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:10px 16px;min-height:100%}
+
+/* --- chrome --- */
+.bar{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;margin-bottom:10px}
+.box{border:3px solid var(--white);border-radius:6px;background:var(--blue-dd);padding:4px 10px;font-family:var(--px);font-weight:700;font-size:14px;white-space:nowrap}
+.title{font-family:var(--px);font-weight:700;font-size:clamp(18px,3.4vw,28px);text-align:center;text-transform:uppercase;letter-spacing:.02em;line-height:1.05;text-shadow:0 3px 0 var(--navy)}
+.title .st{color:var(--yellow);font-size:.7em;vertical-align:.12em;letter-spacing:0}
+.btn{font-family:var(--px);font-weight:700;text-transform:uppercase;border:3px solid var(--white);border-radius:6px;background:var(--blue-dd);padding:9px 14px;font-size:14px;letter-spacing:.03em;box-shadow:0 4px 0 var(--navy)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--navy)}
+.btn.go{background:var(--yellow);color:#241a00;border-color:#fff3b8}
+.btn.red{background:var(--red)}
+.btn.green{background:var(--green);color:#082010}
+.btn.sm{padding:5px 9px;font-size:12px;border-width:2px}
+.btn:disabled{opacity:.4;pointer-events:none}
+.icon{width:40px;height:36px;padding:0;display:grid;place-items:center;font-size:18px}
+.panel{border:3px solid var(--white);border-radius:6px;background:var(--blue-d);padding:10px 12px}
+.label{font-family:var(--px);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#cfe0ff}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.grow{flex:1;min-width:0}
+.stack{display:grid;gap:10px}
+.muted{color:#cfe0ff}
+.yellow{color:var(--yellow)} .good{color:#7dff95} .bad{color:#ffb3aa}
+.debt{color:#ff5e4f !important}                                                  /* cash below zero */
+/* numbers use a plain monospace: the pixel fonts' 5 reads as S and 0 as O */
+.num,.sal,.card .age{font-family:var(--numf);font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:0}
+.stars{color:var(--yellow);letter-spacing:1px;text-shadow:1px 1px 0 #6b4a00}
+.stars .off{color:#8c93a3;text-shadow:none}
+
+/* --- hub --- */
+.hub{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.menu .btn{padding:14px 6px}
+.chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.chip{border:3px solid var(--white);border-radius:6px;background:var(--blue-dd);padding:5px 6px;text-align:center}
+.chip b{display:block;font-family:var(--px);font-size:14px}
+.vs{display:flex;align-items:center;justify-content:space-around;gap:6px;margin:6px 0 10px;text-align:center}
+.vs .t{display:grid;justify-items:center;gap:3px}
+.vs .n{font-family:var(--px);font-size:12px;text-transform:uppercase}
+.badge{width:46px;height:46px;border-radius:6px;display:grid;place-items:center;font-family:var(--px);font-weight:700;font-size:13px;border:3px solid;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.badge.sm{width:28px;height:28px;font-size:9px;border-width:2px}
+
+/* --- cards --- */
+.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.card{border:3px solid var(--white);border-radius:6px;overflow:hidden;background:var(--gray);padding:0;text-align:center;box-shadow:0 4px 0 var(--navy);position:relative}
+.card:active{transform:translateY(2px)}
+.card .top{height:62px;position:relative;display:flex;align-items:flex-end;justify-content:center}
+.card .top img{width:56px;height:56px;image-rendering:pixelated}
+.card .pos{position:absolute;left:4px;top:3px;font-family:var(--px);font-weight:700;font-size:12px;text-shadow:1px 1px 0 rgba(0,0,0,.4)}
+.card .age{position:absolute;right:4px;top:4px;font-family:var(--px);font-size:10px;background:rgba(0,0,0,.3);border-radius:3px;padding:1px 3px}
+.card .bot{padding:4px 3px 5px;border-top:3px solid var(--white)}
+.card .nm{font-family:var(--px);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .fa-x{display:grid;gap:1px;margin-top:4px;font-size:12px;line-height:1.3}
+.card .fa-x div{display:flex;justify-content:space-between;gap:4px;white-space:nowrap}
+.card .fa-x span{color:#cfe0ff}
+.card .fa-x b{color:var(--white);font-size:12px}
+.card .fnm{font-family:var(--px);font-size:9px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .sal{font-family:var(--px);font-size:12px}
+.card.dim{opacity:.45}
+.card .flag{position:absolute;inset:auto 0 0 0;background:var(--red);font-family:var(--px);font-size:10px;padding:2px}
+.card:has(.flag) .bot{padding-bottom:22px}                          /* keep the flag from covering the last line */
+.pc-PG,.pc-SG{background:#5eb4f0}.pc-SF,.pc-PF{background:#58c98a}.pc-C{background:#e8604f}
+
+.capbar{display:flex;align-items:center;gap:10px;margin-top:10px}
+.cap{flex:1;border:3px solid var(--white);border-radius:6px;background:var(--navy);padding:4px 8px}
+.cap .t{font-family:var(--px);font-size:11px;text-align:center;margin-bottom:3px}
+.cap .track{height:14px;background:#000;border:2px solid #000}
+.cap .track i{display:block;height:100%;background:var(--yellow)}
+
+/* --- player page --- */
+.pp{display:grid;grid-template-columns:170px minmax(0,1fr);gap:14px}
+.pp .face{border:3px solid var(--white);border-radius:6px;overflow:hidden;background:var(--gray)}
+.pp .face .top{height:120px;display:flex;align-items:flex-end;justify-content:center}
+.pp .face img{width:112px;height:112px;image-rendering:pixelated}
+.pp .face .bot{padding:6px;border-top:3px solid var(--white);text-align:center}
+.rt{display:grid;grid-template-columns:92px minmax(0,1fr) 40px auto;align-items:center;gap:8px;margin-bottom:8px}
+.rt .nm{font-family:var(--px);font-size:12px}
+.segs{display:grid;grid-template-columns:repeat(10,1fr);gap:2px}
+.segs i{height:14px;background:var(--navy);border-radius:1px}
+.segs i.on{background:var(--yellow)}
+.segs i.pot{background:#5a6a9a}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-family:var(--px);font-size:10px;color:#cfe0ff;text-align:right;padding:4px;font-weight:400}
+td{padding:5px 4px;text-align:right;border-top:2px solid rgba(255,255,255,.15)}
+th:first-child,td:first-child{text-align:left}
+tr.me td{color:var(--yellow)}
+tr.cut td{border-top:2px dashed var(--yellow)}
+
+.sheet-bg{position:fixed;inset:0;background:rgba(5,10,30,.6);z-index:40}
+.sheet{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:41;width:min(460px,calc(100% - 32px));max-height:calc(100% - 24px);overflow:auto;border:3px solid var(--white);border-radius:8px;background:var(--blue-d);padding:14px;box-shadow:0 6px 0 var(--navy)}
+.sheet .inner{display:grid;gap:10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;background:var(--yellow);color:#241a00;font-family:var(--px);font-size:12px;padding:8px 12px;border-radius:4px;border:2px solid #fff;max-width:calc(100% - 32px);text-align:center}
+input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white);border-radius:6px;padding:8px;font:16px var(--body);color:#fff}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:38px;height:38px;border-radius:4px;border:3px solid transparent;padding:0}
+.sw.on{border-color:#fff}
+
+/* --- game --- */
+#game{position:fixed;inset:0;background:#0b1433;z-index:30;display:flex;align-items:center;justify-content:center}
+#game[hidden]{display:none}
+.stage{position:relative}
+#court{display:block;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
+.hud{position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.sb{display:flex;align-items:stretch;border:3px solid #fff;border-top:0;border-radius:0 0 10px 10px;background:#0b1433;font-family:var(--px);font-weight:700;overflow:hidden;box-shadow:0 4px 0 rgba(0,0,0,.55)}
+.sb .tm{display:flex;align-items:center;gap:8px;padding:4px 10px 5px;min-width:112px;position:relative;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.sb .tm.r{justify-content:flex-end}
+.sb .ab{font-size:15px;letter-spacing:.04em;text-shadow:0 2px 0 rgba(0,0,0,.45)}
+.sb .sc{font-size:28px;line-height:1;min-width:38px;text-align:center;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.5)}
+.sb .poss{width:8px;height:10px}
+.sb .poss.on{background:var(--yellow);clip-path:polygon(0 50%,100% 0,100% 100%)}
+.sb .tm.r .poss.on{clip-path:polygon(0 0,100% 50%,0 100%)}
+.sb .mid{display:grid;place-items:center;align-content:center;padding:2px 12px;border-inline:3px solid #fff;min-width:78px;background:#0b1433;line-height:1.05}
+.sb .q{font-size:11px;color:var(--yellow)}
+.sb .clk{font-size:19px;color:#fff}
+.shotbox{margin-top:-1px;border:3px solid #fff;border-top:0;border-radius:0 0 6px 6px;background:#1a0d0d;color:#ff5a3c;font-family:var(--px);font-weight:700;font-size:15px;padding:0 10px 2px;min-width:44px;text-align:center;text-shadow:0 0 6px rgba(255,90,60,.6);box-shadow:0 3px 0 rgba(0,0,0,.5)}
+.shotbox:empty{display:none}
+.gbtn{position:absolute;top:6px;right:6px;pointer-events:auto}
+.banner{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-family:var(--px);font-weight:700;font-size:26px;text-shadow:0 3px 0 #000,0 0 14px rgba(0,0,0,.6);text-align:center;pointer-events:none;white-space:nowrap}
+.banner small.big{font-size:30px;color:#fff;margin-top:6px}
+.banner small{display:block;font-size:13px;color:var(--yellow);margin-top:4px}
+.meter{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:22px;height:46%;border:3px solid #fff;border-radius:4px;background:#0b1433;pointer-events:none;box-shadow:0 3px 0 #000}
+.meter i{position:absolute;left:0;right:0;bottom:0;height:0}
+.meter .pct{position:absolute;left:30px;bottom:-4px;font-family:var(--px);font-weight:700;font-size:14px;text-shadow:0 2px 0 #000;white-space:nowrap}
+.meter.right{left:auto;right:14px}
+.stats[hidden]{display:none}
+.stats{position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,14,40,.55);z-index:5}
+.st-card{border:3px solid #fff;border-radius:8px;background:var(--blue-d);padding:10px 16px 12px;box-shadow:0 5px 0 var(--navy);width:min(430px,92%);display:grid;gap:6px;text-align:center}
+.st-title{font-family:var(--px);font-weight:700;font-size:22px;text-shadow:0 3px 0 var(--navy)}
+.st-span{font-family:var(--px);font-size:11px;color:var(--yellow);margin-top:-4px}
+.st-score{display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--px);font-weight:700}
+.st-team{border:3px solid #fff;border-radius:5px;padding:2px 8px;font-size:14px}
+.st-num{font-size:26px;min-width:40px}
+.st-dash{color:#cfe0ff}
+.st-table{width:100%;border-collapse:collapse;font-size:15px}
+.st-table th{font-family:var(--px);font-size:11px;color:#cfe0ff;text-align:center;font-weight:400;padding:4px 6px;border-top:2px solid rgba(255,255,255,.15)}
+.st-table td{padding:4px 6px;border-top:2px solid rgba(255,255,255,.15);font-variant-numeric:tabular-nums;font-family:var(--px);font-size:13px}
+.st-table td.u{text-align:left}.st-table td.v{text-align:right}
+.st-table .pc{color:#cfe0ff;font-size:11px}
+.meter.right .pct{left:auto;right:30px}
+.kitp{display:grid;gap:8px;justify-items:center}
+.kitp .row{width:100%}
+.kitimg{width:112px;height:auto;image-rendering:pixelated;background:#d49a5c;border:3px solid #fff;border-radius:6px;padding:6px 10px}
+.kitrow{display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between}
+.seg{display:flex;gap:6px}
+.lfilt{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.lfilt select{font:700 13px var(--px);color:var(--white);background:var(--blue-dd);border:3px solid var(--white);border-radius:6px;padding:6px 8px}
+.lt{font-size:13px}.lt td,.lt th{white-space:nowrap}
+.lt th button{all:unset;cursor:pointer;padding:2px 3px;border-radius:3px}
+.lt th button.on{background:var(--yellow);color:#241a00}
+.lt td.nm2{text-align:left;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.lt td.tm{text-align:left;font-family:var(--px);font-size:11px}
+.lt td.sorted{color:var(--yellow);font-weight:700}
+.lt .zero td{color:#9fb3e0}
+.pst{font-size:13px}.pst td,.pst th{white-space:nowrap}.pst td:first-child{font-family:var(--px);font-size:11px;text-align:left}
+.tgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.tpick{display:flex;align-items:center;gap:6px;border:2px solid rgba(255,255,255,.25);border-radius:6px;background:var(--blue-dd);padding:5px 6px;text-align:left}
+.tpick.on{border-color:var(--yellow);box-shadow:0 0 0 2px var(--yellow)}
+.tpick .tn{font-size:11px;line-height:1.15}.tpick .tn b{font-family:var(--px);font-size:10px}
+.shootbtn{position:absolute;right:12px;bottom:12px;width:138px;height:138px;border-radius:50%;font-size:20px;padding:0;touch-action:none;-webkit-touch-callout:none;z-index:4}
+.shootbtn:active{transform:translateY(3px)}
+.tip{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-family:var(--px);font-size:10px;text-align:center;color:#fff;text-shadow:0 2px 0 #000;pointer-events:none;max-width:60%}
+
+#rotate{display:none;position:fixed;inset:0;z-index:100;background:var(--blue);align-items:center;justify-content:center;text-align:center;padding:24px}
+#rotate .in{display:grid;gap:14px;justify-items:center}
+@media (orientation:portrait) and (max-width:700px){ #rotate{display:flex} }
+</style>
+
+<div id="ui"></div>
+
+<div id="game" hidden>
+  <div class="stage" id="stage">
+    <canvas id="court" width="640" height="360"></canvas>
+    <div class="hud"><div class="sb">
+      <div class="tm" id="tmU"><span class="ab" id="aU"></span><span class="sc num" id="sU">0</span><span class="poss" id="pU"></span></div>
+      <div class="mid"><span class="q" id="qq">1ST</span><span class="clk num" id="qc">15:00</span></div>
+      <div class="tm r" id="tmO"><span class="poss" id="pO"></span><span class="sc num" id="sO">0</span><span class="ab" id="aO"></span></div>
+    </div><div class="shotbox num" id="shc">24</div></div>
+    <button class="btn sm gbtn" id="pauseBtn" aria-label="Pause">II</button>
+    <button class="btn go shootbtn" id="shootBtn" aria-label="Hold to shoot">SHOOT</button>
+    <div class="banner" id="banner" hidden></div>
+    <div class="meter" id="meter" hidden><i id="meterFill"></i><span class="pct" id="meterPct"></span></div>
+    <div class="stats" id="stats" hidden></div>
+    <div class="meter right" id="ometer" hidden><i id="ometerFill"></i><span class="pct" id="ometerPct"></span></div>
+    <div class="tip" id="tip"></div>
+  </div>
+</div>
+
+<div id="rotate"><div class="in">
+  <div class="px" style="font-size:22px">Turn your phone sideways</div>
+  <div class="muted">Retro Basket plays in landscape.</div>
+</div></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================ helpers ============================ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+const uid = () => Math.random().toString(36).slice(2, 9);
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// amounts are in millions; under $1M shows in thousands ($960K)
+const money = m => { const a = Math.abs(m), s = m < 0 ? '-' : '';
+  if (a === 0) return '$0';
+  if (Math.round(a * 1000) < 1000) return `${s}$${Math.round(a * 1000)}K`;
+  return s + '$' + (a >= 10 ? Math.round(a) : a.toFixed(1).replace(/\.0$/, '')) + 'M'; };
+
+/* ============================ data ============================ */
+// made-up players only: no first or last names shared with the legends, so nobody reads as a fake Irving or Kobe
+const FIRST = ['Marcus','Tyler','Andre','Malik','Darius','Trey','Cole','Evan','Aaron','Caleb','Derek','Elijah','Luke','Mason','Noah','Omar','Quinn','Sam','Terrence','Victor','Xavier','Dante','Miles','Luis','Theo','Rashad','Bryce','Kai','Deshawn','Jamar'];
+const LAST = ['Brooks','Ellis','Jenkins','Lewis','Moore','Owens','Stone','Turner','Vance','Banks','Cole','Dixon','Fisher','Gibson','Harper','Knight','Lowe','Newton','Ramsey','Sutton','Tate','Webb','Bishop','Cross','Drake','Foster','Holt','Maxwell','Ruiz','Santos','Warren','Bell','Coleman','Diaz','Graves','Okafor','Mensah','Kowalski','Novak'];
+const TONES = { black:'#7a4a2b', tan:'#c68a61', white:'#e8b58f', dark:'#57341f', brown:'#7a4a2b', caramel:'#a06a44', light:'#e0aa82', fair:'#f0c6a2' };
+const SKIN = Object.values(TONES);
+const HAIR = ['#1b1410','#3a2618','#5c3a1e','#d7b35a'];
+const HAIR_BY_TONE = { black:['#1b1410'], tan:['#1b1410','#3a2618'], white:['#1b1410','#3a2618','#5c3a1e','#d7b35a'] };
+const STYLES_BY_TONE = { black:['afro','fade','headband'], tan:['afro','fade','headband','curly'], white:['fade','headband','curly'] };
+function giveLook(p){
+  const tone = pick(['black','black','tan','white','white']);
+  p.tone = tone; p.skin = TONES[tone]; p.hair = pick(HAIR_BY_TONE[tone]); p.style = pick(STYLES_BY_TONE[tone]);
+  return p;
+}
+// every team: a main color, a secondary color, and white
+const COLORS = [['#d9453b','#1f2a44'],['#2f6fe0','#ffd23f'],['#2f9e5b','#ffd23f'],['#7a4bd1','#ffd23f'],['#f08a24','#1b2233'],['#1f2a44','#e0584b'],['#12a3a3','#1f2a44'],['#b0304f','#ffd23f']];
+const SECONDARY = Object.fromEntries(COLORS);
+const AI_TEAMS = [['Portside','Pilots'],['Ridgeview','Rams'],['Lakeshore','Lynx'],['Mesa','Vipers'],['Northgate','Wolves'],['Bayview','Herons'],['Summit','Peaks'],['Ironwood','Bears'],['Coral Coast','Sharks'],['Pine Hollow','Owls'],['Redstone','Miners']];
+const POS = ['PG','SG','SF','PF','C'];
+/* All-time legends: the 30 best ever at each position, filed under a franchise he played for. Players are listed PG, SG, SF, PF, C, at their prime age.
+   A new game shuffles them: most land on random teams, 30 start in free agency, and the rest wait in G.pool to refill it.
+   Stars come from ranking the 30 at each position: ranks 1-3 are 5 stars, 4-6 are 4.5, and so on down to 0.5.
+   Each shape is [speed, stamina, shooting, handling] from their real game; fitStars() scales it to match the stars. */
+const NBA = [
+  { abbr:'PHI', city:'Philadelphia', name:'76ers', conf:'E', c1:'#006BB6', c2:'#ED174C', players:[['Allen Iverson',3,25,'black','headband',3,[10,8,7,8]],['Hal Greer',15,29,'black','fade',3.5,[7,8,8,6]],['Julius Erving',6,29,'black','afro',4.5,[9,8,6,7]],['Dolph Schayes',4,28,'white','fade',3,[5,9,8,6]],['Joel Embiid',21,28,'black','fade',4,[4,5,8,6]]] },
+  { abbr:'OKC', city:'Oklahoma City', name:'Thunder', conf:'W', c1:'#007AC1', c2:'#EF3B24', players:[['Gary Payton',20,28,'black','fade',4,[8,9,6,9]],['Shai Gilgeous-Alexander',2,27,'black','fade',4.5,[8,9,8,9]],['Kevin Durant',35,27,'black','fade',5,[7,8,10,7]],['Shawn Kemp',40,26,'black','fade',2,[8,7,4,5]],['Jack Sikma',43,28,'white','curly',1,[3,8,6,5]]] },
+  { abbr:'NYK', city:'New York', name:'Knicks', conf:'E', c1:'#006BB6', c2:'#F58426', players:[['Walt Frazier',10,28,'black','fade',3.5,[7,8,7,9]],['Earl Monroe',15,28,'black','fade',2.5,[7,7,7,9]],['Carmelo Anthony',7,28,'black','fade',3.5,[6,8,9,7]],['Willis Reed',19,27,'black','fade',3.5,[4,9,6,5]],['Patrick Ewing',33,28,'black','fade',3.5,[4,9,6,5]]] },
+  { abbr:'IND', city:'Indiana', name:'Pacers', conf:'E', c1:'#002D62', c2:'#FDBB30', players:[['Tyrese Haliburton',0,26,'black','fade',.5,[7,6,8,10]],['Reggie Miller',31,28,'black','fade',3.5,[7,9,10,6]],['Chris Mullin',17,28,'white','fade',2,[5,9,9,7]],["Jermaine O'Neal",7,26,'black','fade',1.5,[5,7,5,5]],['Rik Smits',45,28,'white','fade',.5,[3,6,5,5]]] },
+  { abbr:'DEN', city:'Denver', name:'Nuggets', conf:'W', c1:'#0E2240', c2:'#FEC524', players:[['Chauncey Billups',7,30,'black','fade',2,[6,8,8,9]],['David Thompson',33,25,'black','fade',2,[10,7,7,6]],['Alex English',2,29,'black','fade',2.5,[7,8,8,6]],['Dan Issel',44,28,'white','fade',1.5,[4,8,7,5]],['Nikola Jokic',15,29,'white','fade',4.5,[3,9,8,10]]] },
+  { abbr:'SAS', city:'San Antonio', name:'Spurs', conf:'W', c1:'#000000', c2:'#C4CED4', players:[['Tony Parker',9,27,'tan','fade',2.5,[10,8,6,8]],['Manu Ginobili',20,28,'white','fade',3,[8,7,8,8]],['George Gervin',44,27,'black','afro',4,[7,8,9,6]],['Tim Duncan',21,27,'black','fade',5,[4,10,6,7]],['David Robinson',50,28,'black','fade',4,[7,9,5,5]]] },
+  { abbr:'CLE', city:'Cleveland', name:'Cavaliers', conf:'E', c1:'#860038', c2:'#FDBB30', players:[['Kyrie Irving',2,26,'tan','fade',2.5,[7,6,9,10]],['Mark Price',25,27,'white','fade',1,[6,7,9,9]],['LeBron James',23,28,'black','headband',5,[9,9,7,9]],['Kevin Love',0,27,'white','fade',2,[3,8,8,6]],['Brad Daugherty',43,27,'white','fade',.5,[4,7,5,6]]] },
+  { abbr:'ATL', city:'Atlanta', name:'Hawks', conf:'E', c1:'#E03A3E', c2:'#FDB927', players:[['Lenny Wilkens',19,30,'black','fade',1.5,[7,8,6,8]],['Joe Johnson',2,28,'black','fade',1,[6,8,8,7]],['Dominique Wilkins',21,27,'black','fade',3.5,[9,8,7,6]],['Bob Pettit',9,27,'white','fade',4,[5,9,7,6]],['Moses Malone',24,28,'black','fade',4,[4,10,5,5]]] },
+  { abbr:'HOU', city:'Houston', name:'Rockets', conf:'W', c1:'#CE1141', c2:'#000000', players:[['Russell Westbrook',0,28,'black','fade',3.5,[10,9,5,7]],['James Harden',13,28,'black','fade',4.5,[7,8,9,9]],['Rudy Tomjanovich',45,27,'white','fade',.5,[5,8,8,5]],['Elvin Hayes',44,27,'black','fade',4,[5,10,7,5]],['Hakeem Olajuwon',34,29,'black','fade',4.5,[7,9,6,7]]] },
+  { abbr:'TOR', city:'Toronto', name:'Raptors', conf:'E', c1:'#CE1141', c2:'#000000', players:[['Kyle Lowry',7,30,'black','fade',1.5,[6,8,7,8]],['DeMar DeRozan',10,28,'black','fade',1.5,[7,8,7,7]],['Vince Carter',15,24,'black','fade',3,[10,7,8,7]],['Pascal Siakam',43,27,'black','fade',1,[7,8,6,6]],['Marc Gasol',33,30,'white','fade',1,[3,8,6,8]]] },
+  { abbr:'BOS', city:'Boston', name:'Celtics', conf:'E', c1:'#007A33', c2:'#BA9653', players:[['Bob Cousy',14,28,'white','fade',3,[7,8,6,10]],['John Havlicek',17,28,'white','fade',4,[8,10,7,7]],['Larry Bird',33,28,'white','fade',5,[5,8,10,9]],['Kevin McHale',32,28,'white','fade',4,[4,8,7,6]],['Bill Russell',6,28,'black','fade',5,[7,10,4,7]]] },
+  { abbr:'MIN', city:'Minnesota', name:'Timberwolves', conf:'W', c1:'#0C2340', c2:'#78BE20', players:[['Stephon Marbury',3,25,'black','fade',.5,[8,7,7,8]],['Anthony Edwards',5,25,'black','fade',2,[9,8,8,7]],['Latrell Sprewell',8,27,'black','fade',1,[8,8,6,6]],['Kevin Garnett',21,27,'black','fade',4.5,[6,10,7,7]],['Karl-Anthony Towns',32,26,'tan','fade',1.5,[4,7,9,6]]] },
+  { abbr:'DET', city:'Detroit', name:'Pistons', conf:'E', c1:'#C8102E', c2:'#1D42BA', players:[['Isiah Thomas',11,27,'black','fade',4.5,[9,8,7,10]],['Joe Dumars',4,28,'black','fade',2.5,[7,8,8,7]],['Grant Hill',33,26,'black','fade',3,[8,8,6,8]],['Rasheed Wallace',36,29,'black','headband',2.5,[5,8,7,5]],['Ben Wallace',3,29,'black','afro',2,[6,10,1,5]]] },
+  { abbr:'MIA', city:'Miami', name:'Heat', conf:'E', c1:'#98002E', c2:'#000000', players:[['Tim Hardaway',10,28,'black','fade',2,[8,7,8,9]],['Dwyane Wade',3,27,'black','fade',4.5,[9,8,7,8]],['Jimmy Butler',22,30,'black','fade',3,[7,9,6,7]],['Chris Bosh',1,28,'black','fade',3,[5,8,8,6]],['Alonzo Mourning',33,28,'black','fade',3,[5,8,5,5]]] },
+  { abbr:'UTA', city:'Utah', name:'Jazz', conf:'W', c1:'#002B5C', c2:'#F9A01B', players:[['John Stockton',12,29,'white','fade',4.5,[8,9,7,10]],['Donovan Mitchell',45,26,'black','fade',1.5,[8,8,8,7]],['Adrian Dantley',4,28,'black','fade',2.5,[6,8,8,6]],['Karl Malone',32,29,'black','fade',4.5,[6,10,6,6]],['Rudy Gobert',27,28,'white','fade',1.5,[4,8,1,5]]] },
+  { abbr:'LAL', city:'Los Angeles', name:'Lakers', conf:'W', c1:'#552583', c2:'#FDB927', players:[['Magic Johnson',32,27,'black','fade',5,[7,9,7,10]],['Kobe Bryant',24,28,'black','fade',5,[8,9,9,8]],['Elgin Baylor',22,27,'black','fade',4.5,[8,9,7,7]],['James Worthy',42,27,'black','fade',2,[8,8,6,6]],["Shaquille O'Neal",34,28,'black','fade',4.5,[5,8,4,6]]] },
+  { abbr:'POR', city:'Portland', name:'Trail Blazers', conf:'W', c1:'#E03A3E', c2:'#000000', players:[['Damian Lillard',0,29,'black','fade',3,[7,8,10,8]],['Clyde Drexler',22,28,'black','fade',4,[9,8,7,7]],['Brandon Roy',7,24,'black','fade',1,[7,6,7,8]],['LaMarcus Aldridge',12,29,'black','fade',2.5,[4,8,8,5]],['Bill Walton',32,25,'white','curly',3,[5,5,6,8]]] },
+  { abbr:'ORL', city:'Orlando', name:'Magic', conf:'E', c1:'#0077C0', c2:'#C4CED4', players:[['Penny Hardaway',1,24,'black','fade',1.5,[8,7,7,9]],['Tracy McGrady',3,24,'black','fade',3,[8,7,8,7]],['Hedo Turkoglu',15,29,'white','fade',.5,[6,7,7,8]],['Horace Grant',54,29,'black','fade',1,[6,8,5,5]],['Dwight Howard',12,25,'black','fade',3.5,[7,9,2,4]]] },
+  { abbr:'GSW', city:'Golden State', name:'Warriors', conf:'W', c1:'#1D428A', c2:'#FFC72C', players:[['Stephen Curry',30,28,'tan','fade',5,[7,8,10,9]],['Klay Thompson',11,27,'tan','fade',3.5,[6,8,10,6]],['Rick Barry',24,27,'white','fade',4,[7,8,9,7]],['Draymond Green',23,28,'black','fade',3,[6,9,4,8]],['Wilt Chamberlain',13,26,'black','headband',5,[7,10,5,6]]] },
+  { abbr:'PHX', city:'Phoenix', name:'Suns', conf:'W', c1:'#1D1160', c2:'#E56020', players:[['Steve Nash',13,31,'white','fade',4,[7,8,10,10]],['Devin Booker',1,27,'tan','fade',2,[7,8,9,8]],['Shawn Marion',31,27,'black','fade',2,[8,9,5,6]],['Charles Barkley',34,28,'black','fade',4.5,[6,8,7,7]],["Amar'e Stoudemire",32,25,'black','fade',1.5,[7,7,6,5]]] },
+  { abbr:'NOP', city:'New Orleans', name:'Pelicans', conf:'W', c1:'#0C2340', c2:'#85714D', players:[['Jrue Holiday',11,28,'black','fade',1,[7,8,7,8]],['Pete Maravich',7,26,'white','curly',3,[7,7,8,10]],['Brandon Ingram',14,26,'black','fade',.5,[6,7,7,6]],['Zion Williamson',1,25,'black','fade',.5,[7,5,4,7]],['Anthony Davis',23,26,'black','fade',3.5,[6,8,6,6]]] },
+  { abbr:'WAS', city:'Washington', name:'Wizards', conf:'E', c1:'#002B5C', c2:'#E31837', players:[['John Wall',2,26,'black','fade',1,[10,7,5,9]],['Gilbert Arenas',0,25,'black','fade',1,[7,7,8,8]],['Bernard King',30,28,'black','fade',2.5,[7,7,8,6]],['Antawn Jamison',4,28,'black','fade',.5,[5,8,7,5]],['Wes Unseld',41,26,'black','fade',3,[3,10,3,7]]] },
+  { abbr:'DAL', city:'Dallas', name:'Mavericks', conf:'W', c1:'#00538C', c2:'#B8C4CA', players:[['Luka Doncic',77,26,'white','fade',3.5,[5,8,9,10]],['Rolando Blackman',22,28,'black','fade',.5,[6,8,8,6]],['Mark Aguirre',24,26,'black','fade',1.5,[6,7,8,7]],['Dirk Nowitzki',41,28,'white','fade',5,[4,9,10,6]],['Tyson Chandler',6,28,'black','fade',.5,[5,8,1,4]]] },
+  { abbr:'LAC', city:'LA', name:'Clippers', conf:'W', c1:'#C8102E', c2:'#1D428A', players:[['Chris Paul',3,27,'black','fade',4.5,[7,8,8,10]],['Paul George',13,28,'black','fade',1.5,[7,8,8,7]],['Kawhi Leonard',2,28,'black','fade',4.5,[6,8,8,8]],['Blake Griffin',32,26,'tan','fade',2.5,[7,8,6,7]],['Bob McAdoo',11,25,'black','fade',2.5,[5,8,8,5]]] },
+  { abbr:'CHA', city:'Charlotte', name:'Hornets', conf:'E', c1:'#1D1160', c2:'#00788C', players:[['Kemba Walker',15,28,'black','fade',.5,[8,7,8,8]],['Dell Curry',30,29,'tan','fade',.5,[5,7,9,6]],['Glen Rice',41,29,'black','fade',1.5,[6,8,9,6]],['Larry Johnson',2,25,'black','fade',1,[6,8,6,6]],['Robert Parish',0,30,'black','fade',2.5,[5,10,5,5]]] },
+  { abbr:'CHI', city:'Chicago', name:'Bulls', conf:'E', c1:'#CE1141', c2:'#000000', players:[['Derrick Rose',1,24,'black','fade',2,[10,7,6,8]],['Michael Jordan',23,28,'black','fade',5,[9,9,9,9]],['Scottie Pippen',33,28,'black','fade',4,[8,9,6,8]],['Dennis Rodman',91,31,'black','fade',3.5,[7,10,2,5]],['Artis Gilmore',53,28,'black','afro',2,[4,9,5,5]]] },
+  { abbr:'MEM', city:'Memphis', name:'Grizzlies', conf:'W', c1:'#5D76A9', c2:'#12173F', players:[['Ja Morant',12,24,'black','fade',1,[10,6,6,8]],['Jerry West',44,28,'white','fade',5,[8,8,9,9]],['Rudy Gay',22,27,'black','fade',1,[7,7,7,6]],['Zach Randolph',50,29,'black','fade',1.5,[3,8,6,6]],['Pau Gasol',16,28,'white','fade',2,[4,8,7,7]]] },
+  { abbr:'SAC', city:'Sacramento', name:'Kings', conf:'W', c1:'#5A2D81', c2:'#63727A', players:[['Tiny Archibald',1,26,'black','fade',2.5,[9,8,7,9]],['Mitch Richmond',2,28,'black','fade',2.5,[7,8,8,7]],['Peja Stojakovic',16,27,'white','fade',2,[5,7,10,6]],['Chris Webber',4,27,'black','fade',3.5,[5,8,6,8]],['DeMarcus Cousins',15,26,'black','fade',1,[4,7,6,7]]] },
+  { abbr:'BKN', city:'Brooklyn', name:'Nets', conf:'E', c1:'#000000', c2:'#777D84', players:[['Jason Kidd',5,28,'tan','fade',4,[8,9,5,10]],['Drazen Petrovic',3,28,'white','curly',.5,[6,7,9,7]],['Paul Pierce',34,29,'black','fade',3.5,[6,8,8,7]],['Buck Williams',52,27,'black','fade',.5,[5,9,4,5]],['Dikembe Mutombo',55,28,'black','fade',2.5,[4,9,1,4]]] },
+  { abbr:'MIL', city:'Milwaukee', name:'Bucks', conf:'E', c1:'#00471B', c2:'#EEE1C6', players:[['Oscar Robertson',1,28,'black','fade',5,[7,9,8,10]],['Ray Allen',20,26,'black','fade',4,[7,9,10,7]],['Marques Johnson',8,26,'black','fade',1.5,[7,8,7,7]],['Giannis Antetokounmpo',34,28,'black','fade',5,[9,9,5,7]],['Kareem Abdul-Jabbar',33,27,'black','fade',5,[5,9,8,6]]] }
+];
+/* How each legend looks in his prime: "skin style hair [extras]".
+   skin: dark brown caramel tan light fair (plus black/white from the old set). style: bald buzz fade afro curly long cornrows hitop.
+   hair: black dkbrown brown blond red dyed. extras: band (headband) beard goatee stache goggles unibrow. */
+const HAIRC = { black:'#1b1410', dkbrown:'#3a2618', brown:'#6b4423', blond:'#d7b35a', red:'#b5532a', dyed:'#35b8e8' };
+const LOOK = {
+  'Allen Iverson':'brown cornrows black band', 'Hal Greer':'brown buzz black', 'Julius Erving':'brown afro black', 'Dolph Schayes':'fair fade dkbrown', 'Joel Embiid':'dark buzz black beard',
+  'Gary Payton':'brown buzz black', 'Shai Gilgeous-Alexander':'brown cornrows black', 'Kevin Durant':'brown buzz black goatee', 'Shawn Kemp':'brown hitop black', 'Jack Sikma':'fair curly blond',
+  'Walt Frazier':'brown fade black stache', 'Earl Monroe':'brown afro black goatee', 'Carmelo Anthony':'caramel cornrows black band', 'Willis Reed':'dark buzz black', 'Patrick Ewing':'dark hitop black',
+  'Tyrese Haliburton':'brown curly black', 'Reggie Miller':'brown buzz black', 'Chris Mullin':'fair hitop dkbrown', "Jermaine O'Neal":'brown buzz black goatee', 'Rik Smits':'fair long blond',
+  'Chauncey Billups':'brown bald black goatee', 'David Thompson':'brown afro black', 'Alex English':'brown afro black stache', 'Dan Issel':'light long brown stache', 'Nikola Jokic':'fair buzz dkbrown',
+  'Tony Parker':'tan buzz black', 'Manu Ginobili':'light bald dkbrown', 'George Gervin':'brown afro black stache', 'Tim Duncan':'brown buzz black', 'David Robinson':'brown buzz black',
+  'Kyrie Irving':'caramel fade black beard', 'Mark Price':'fair fade brown', 'LeBron James':'brown buzz black band beard', 'Kevin Love':'fair fade brown', 'Brad Daugherty':'fair fade brown',
+  'Lenny Wilkens':'brown buzz black', 'Joe Johnson':'brown bald black beard', 'Dominique Wilkins':'brown hitop black', 'Bob Pettit':'fair fade dkbrown', 'Moses Malone':'dark fade black',
+  'Russell Westbrook':'brown fade black', 'James Harden':'brown afro black beard', 'Rudy Tomjanovich':'light long dkbrown', 'Elvin Hayes':'brown fade black stache', 'Hakeem Olajuwon':'dark buzz black goatee',
+  'Kyle Lowry':'brown buzz black beard', 'DeMar DeRozan':'brown buzz black goatee', 'Vince Carter':'brown buzz black goatee', 'Pascal Siakam':'dark hitop black', 'Marc Gasol':'fair bald dkbrown beard',
+  'Bob Cousy':'fair fade dkbrown', 'John Havlicek':'fair fade brown', 'Larry Bird':'fair fade blond stache', 'Kevin McHale':'fair fade dkbrown', 'Bill Russell':'dark bald black goatee',
+  'Stephon Marbury':'brown buzz black', 'Anthony Edwards':'brown buzz black', 'Latrell Sprewell':'brown cornrows black', 'Kevin Garnett':'brown bald black', 'Karl-Anthony Towns':'tan fade black',
+  'Isiah Thomas':'brown fade black', 'Joe Dumars':'brown fade black', 'Grant Hill':'brown buzz black', 'Rasheed Wallace':'brown bald black band', 'Ben Wallace':'dark afro black',
+  'Tim Hardaway':'brown buzz black', 'Dwyane Wade':'brown buzz black goatee', 'Jimmy Butler':'brown fade black goatee', 'Chris Bosh':'brown buzz black', 'Alonzo Mourning':'brown bald black goatee',
+  'John Stockton':'fair fade brown', 'Donovan Mitchell':'brown buzz black', 'Adrian Dantley':'brown afro black', 'Karl Malone':'brown buzz black', 'Rudy Gobert':'brown buzz black beard',
+  'Magic Johnson':'brown fade black', 'Kobe Bryant':'brown buzz black', 'Elgin Baylor':'brown fade black', 'James Worthy':'brown fade black goggles', "Shaquille O'Neal":'dark bald black',
+  'Damian Lillard':'brown buzz black beard', 'Clyde Drexler':'brown fade black stache', 'Brandon Roy':'brown buzz black', 'LaMarcus Aldridge':'brown buzz black', 'Bill Walton':'fair curly red beard',
+  'Penny Hardaway':'brown fade black', 'Tracy McGrady':'brown buzz black', 'Hedo Turkoglu':'light fade dkbrown', 'Horace Grant':'brown fade black goggles', 'Dwight Howard':'brown buzz black',
+  'Stephen Curry':'tan fade black', 'Klay Thompson':'tan fade dkbrown', 'Rick Barry':'fair fade brown', 'Draymond Green':'brown buzz black beard', 'Wilt Chamberlain':'dark buzz black band goatee',
+  'Steve Nash':'fair long brown', 'Devin Booker':'tan fade black', 'Shawn Marion':'brown buzz black', 'Charles Barkley':'brown bald black', "Amar'e Stoudemire":'brown fade black goatee',
+  'Jrue Holiday':'brown buzz black beard', 'Pete Maravich':'fair long brown', 'Brandon Ingram':'brown fade black', 'Zion Williamson':'brown buzz black', 'Anthony Davis':'brown buzz black unibrow',
+  'John Wall':'brown buzz black', 'Gilbert Arenas':'brown buzz black', 'Bernard King':'brown afro black', 'Antawn Jamison':'brown buzz black', 'Wes Unseld':'dark fade black',
+  'Luka Doncic':'fair fade brown beard', 'Rolando Blackman':'brown fade black stache', 'Mark Aguirre':'brown fade black', 'Dirk Nowitzki':'fair long blond', 'Tyson Chandler':'brown buzz black',
+  'Chris Paul':'brown buzz black', 'Paul George':'brown buzz black', 'Kawhi Leonard':'brown cornrows black', 'Blake Griffin':'tan fade black', 'Bob McAdoo':'brown afro black stache',
+  'Kemba Walker':'brown buzz black', 'Dell Curry':'tan buzz black', 'Glen Rice':'brown fade black stache', 'Larry Johnson':'brown hitop black', 'Robert Parish':'dark fade black',
+  'Derrick Rose':'brown buzz black', 'Michael Jordan':'brown bald black', 'Scottie Pippen':'brown fade black', 'Dennis Rodman':'brown fade dyed', 'Artis Gilmore':'brown afro black beard',
+  'Ja Morant':'brown buzz black', 'Jerry West':'fair fade dkbrown', 'Rudy Gay':'brown buzz black', 'Zach Randolph':'brown cornrows black', 'Pau Gasol':'light long dkbrown beard',
+  'Tiny Archibald':'brown afro black', 'Mitch Richmond':'brown fade black', 'Peja Stojakovic':'fair fade dkbrown', 'Chris Webber':'brown bald black', 'DeMarcus Cousins':'brown buzz black beard',
+  'Jason Kidd':'tan buzz black', 'Drazen Petrovic':'fair curly dkbrown', 'Paul Pierce':'brown buzz black', 'Buck Williams':'brown fade black', 'Dikembe Mutombo':'dark bald black',
+  'Oscar Robertson':'brown fade black', 'Ray Allen':'brown buzz black', 'Marques Johnson':'brown afro black', 'Giannis Antetokounmpo':'brown buzz black', 'Kareem Abdul-Jabbar':'brown buzz black goggles',
+};
+const RATE = ['spd','sta','sht','hnd'];
+const RATE_NAME = { spd:'Speed', sta:'Stamina', sht:'Shooting', hnd:'Handling' };
+const RATE_DESC = { spd:'Gets open faster and stays open longer.', sta:'Keeps his speed late in each quarter.', sht:'Makes more shots, especially from deep.', hnd:'Fumbles fewer passes.' };
+const TILT = { PG:{ spd:1, sta:-1, sht:0, hnd:2 }, SG:{ spd:1, sta:-1, sht:2, hnd:0 }, SF:{ spd:.5, sta:0, sht:.5, hnd:0 }, PF:{ spd:-.5, sta:1.5, sht:-.5, hnd:-.5 }, C:{ spd:-1, sta:2, sht:-1, hnd:-1.5 } };
+const SEASON_GAMES = 14, TV = .4;
+const FAC = {
+  training:{ name:'Training Center', desc:lv => `Young players grow ${Math.round(75 + lv * 25)}% as fast each offseason.` },
+  conditioning:{ name:'Conditioning', desc:lv => `Players tire ${lv * 10 - 10}% slower during games.` },
+  arena:{ name:'Arena', desc:lv => `${seats(lv).toLocaleString()} seats.` },
+  scouting:{ name:'Scouting', desc:lv => `See draft ratings within ±${Math.max(0, 3 - lv + 1)}.` },
+};
+const FAC_COST = [0, 1.5, 3, 5, 8];
+const seats = lv => 6000 + 3000 * (lv - 1);
+
+/* ============================ players ============================ */
+const pAvg = p => (p.spd + p.sta + p.sht + p.hnd) / 4;
+// Stars from the total of the 4 ratings (max 40): every 4 points is half a star.
+// 36-40 is 5 stars, 32-35 is 4.5 ... 12-15 is 2, 9-11 is 1.5, 8 and under is 1.
+const starsFromTotal = t => t <= 8 ? 1 : Math.min(5, 1.5 + .5 * Math.floor((t - 8) / 4));
+const pStars = p => starsFromTotal(p.spd + p.sta + p.sht + p.hnd);
+// the average rating that lands in the middle of a star band (1 star aims at 7 of its 8, so a little randomness stays under 9)
+const starsTarget = st => (st >= 1.5 ? 10 + (st - 1.5) * 8 : st >= 1 ? 7 : 5) / 4;
+// a smooth star value, for pricing: matches the bands above
+const starsSmooth = p => { const t = pAvg(p) * 4; return t <= 8 ? t / 8 : 1.5 + (t - 10) / 8; };
+function fitStars(shape, st){
+  const r = shape.map(v => clamp(v, 1, 10)), goal = Math.round(starsTarget(st) * 4);
+  const order = [0, 1, 2, 3].sort((a, b) => shape[b] - shape[a]);
+  let sum = r.reduce((a, b) => a + b, 0), guard = 0;
+  const base = Math.round((goal - sum) / 4);
+  for (let k = 0; k < 4; k++) r[k] = clamp(r[k] + base, 1, 10);
+  sum = r.reduce((a, b) => a + b, 0);
+  while (sum !== goal && guard++ < 80) {
+    const up = sum < goal;
+    const k = (up ? order : [...order].reverse()).find(k => up ? r[k] < 10 : r[k] > 1);
+    if (k === undefined) break;
+    r[k] += up ? 1 : -1; sum += up ? 1 : -1;
+    order.push(order.shift());
+  }
+  return r;
+}
+function starsHTML(s){
+  const full = Math.floor(s), half = s - full >= .5;
+  let h = '';
+  for (let i = 0; i < 5; i++) h += i < full ? '★' : (i === full && half ? '⯪' : '<span class="off">★</span>');
+  return `<span class="stars">${h}</span>`;
+}
+function makePlayer(pos, target, age = ri(20, 32)){
+  const p = giveLook({ id:uid(), fn:pick(FIRST), ln:pick(LAST), pos, age, num:ri(0, 55), gp:0, pts:0, fga:0, fgm:0, sal:0, yrs:0 });
+  for (const k of RATE) p[k] = clamp(Math.round(target + TILT[pos][k] + rnd(-1.3, 1.3)), 1, 10);
+  const d = Math.round((target - pAvg(p)) * 4);
+  for (let i = 0; i < Math.abs(d); i++) { const k = pick(RATE); p[k] = clamp(p[k] + Math.sign(d), 1, 10); }
+  const room = age <= 21 ? rnd(1.5, 4) : age <= 24 ? rnd(.5, 2.5) : age <= 27 ? rnd(0, 1) : 0;
+  p.pot = Math.min(10, Math.round((pAvg(p) + room) * 2) / 2);
+  return p;
+}
+// re-signing your own player costs at least 20% more than his old deal, or his market price if that's higher
+function resignPrice(p){ return Math.max(askSalary(p), Math.round(p.sal * 1.2 * 20) / 20); }
+// priced by stars: about $1M at 1 star, $3.5M at 2, $7.5M at 3, $13M at 4, $21M at 5 (20% less at 32+)
+function askSalary(p){ const a = 1.5 + 1.4 * clamp(starsSmooth(p), 0, 5); return Math.max(1, Math.round(Math.pow(a / 10, 2.6) * 32 * 2) / 2 * (p.age >= 32 ? .8 : 1)); }
+const potStars = p => starsFromTotal(Math.round(p.pot * 4));
+const askYears = p => p.age < 25 ? 3 : p.age < 30 ? 2 : 1;
+const posColor = pos => `pc-${pos}`;
+
+/* ============================ shot math ============================ */
+// Meter: fill = (2t)^2.41 up to 0.50s (so 0.375s is 50%), then mirrors back down to 0 at 1.00s.
+const METER_K = Math.log(.5) / Math.log(.75);
+const METER_PEAK = .5;
+const meterFill = t => { const u = t / METER_PEAK; return u <= 1 ? Math.pow(clamp(u, 0, 1), METER_K) : Math.pow(clamp(2 - u, 0, 1), METER_K); };
+// Distance: falls gently to the 3-point line, stays near 75% of a 5-footer across normal 3-point range
+// (a three is worth 1.5x, so this keeps threes slightly better value), then drops off for heaves past 30 ft.
+const distM = d => d <= 24 ? Math.exp(-.0145 * (Math.max(d, 3) - 3)) : d <= 30 ? .737 - .008 * (d - 24) : .689 * Math.exp(-.1 * (d - 30));
+const ratingF = (s, d) => 1 - (10 - s) / 9 * (.36 + .2 * clamp((d - 3) / 21, 0, 1.5));
+// Release quality: 85%+ on the meter is a normal, good release (0.92 to 1.00).
+// Below that it falls off hard: 80% gives 0.73, 70% gives 0.41, 60% gives 0.18, 50% gives 0.05.
+const releaseF = m => m >= .85 ? .92 + (Math.min(m, 1) - .85) / .15 * .08 : m <= .4 ? 0 : .92 * Math.pow((m - .4) / .45, 2);
+function shotChance(meter, d, sht, contested){
+  // a small floor plus release quality x rating, scaled by distance; tuned so a good player shoots about 65%. Contested is 75% of open
+  const open = (.15 + .7 * releaseF(meter) * ratingF(sht, d)) * distM(d);
+  return contested ? open * .75 : open;
+}
+const fumbleChance = (hnd, open) => lerp(.1, .02, (hnd - 1) / 9) * (open ? .5 : 1);
+
+/* ============================ state ============================ */
+let G = null;
+const userTeam = () => G.league.find(t => t.user);
+const teamById = id => G.league.find(t => t.id === id);
+const rosterArr = () => POS.map(p => G.roster[p]).filter(Boolean);
+const payroll = () => rosterArr().reduce((s, p) => s + p.sal, 0);
+function userRatings(){
+  const r = rosterArr();
+  const a = k => avg(r.map(p => p[k]));
+  return { sht:a('sht'), spd:a('spd'), sta:a('sta'), hnd:a('hnd'), stars:Math.round(avg(r.map(pStars)) * 2) / 2 };
+}
+function teamR(t){
+  if (t.user) return userRatings();
+  const a = k => avg(t.players.map(p => p[k]));
+  return { sht:a('sht'), spd:a('spd'), sta:a('sta'), hnd:a('hnd'), stars:Math.round(avg(t.players.map(pStars)) * 2) / 2 };
+}
+
+// Every team plays each team in its own conference once (15 teams, so one team sits out each round)
+function confSchedule(league){
+  const rounds = Array.from({ length:15 }, () => []);
+  for (const conf of ['E', 'W']) {
+    const t = league.filter(x => x.conf === conf).map(x => x.id).sort(() => Math.random() - .5);
+    t.push(null);                                                          // the bye slot
+    const n = t.length;
+    for (let r = 0; r < n - 1; r++) {
+      for (let i = 0; i < n / 2; i++) {
+        const a = t[i], b = t[n - 1 - i];
+        if (a && b) rounds[r].push(r % 2 ? { h:a, a:b } : { h:b, a:a });
+      }
+      t.splice(1, 0, t.pop());
+    }
+  }
+  return rounds;
+}
+function realPlayer(row, pos){
+  const [name, num, age, tone, style, stars, shape] = row;
+  const [fn, ...rest] = name.split(' ');
+  const [spd, sta, sht, hnd] = fitStars(shape, stars);
+  const p = { id:uid(), fn, ln:rest.join(' '), pos, age, num, tone, skin:TONES[tone], hair:pick(HAIR_BY_TONE[tone]), style, spd, sta, sht, hnd, legend:true, gp:0, pts:0, fga:0, fgm:0 };
+  const look = LOOK[name];
+  if (look) { const [sk, st, hc, ...ex] = look.split(' '); p.tone = sk; p.skin = TONES[sk]; p.style = st; p.hair = HAIRC[hc]; p.band = ex.includes('band'); p.face = ex.filter(x => x !== 'band').join(' '); }
+  p.pot = Math.min(10, Math.round((pAvg(p) + (age <= 22 ? 1.5 : age <= 25 ? .5 : 0)) * 2) / 2);
+  p.sal = askSalary(p); p.yrs = askYears(p);
+  return p;
+}
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = ri(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+// a no-name role player: half a star to one star
+function fillerPlayer(pos){ const p = makePlayer(pos, starsTarget(pick([.5, 1])) + rnd(-.2, .2), ri(22, 30)); p.sal = askSalary(p); p.yrs = askYears(p); return p; }
+function newGame(pickAbbr){
+  const league = NBA.map(T => ({ id:T.abbr, city:T.city, name:T.name, abbr:T.abbr, conf:T.conf, c1:T.c1, c2:T.c2, w:0, l:0, pf:0, pa:0, players:[] }));
+  const mine = league.find(t => t.id === pickAbbr);
+  mine.id = 'U'; mine.user = true;
+  // legends go to random teams, not their own: every other team keeps 1-3 open spots for no-name role players
+  const ai = league.filter(t => !t.user);
+  const open = new Map(ai.map(t => [t, new Set(shuffle([...POS]).slice(0, pick([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3])))]));
+  const spare = [];
+  POS.forEach((pos, i) => {
+    const legends = shuffle(NBA.map(T => realPlayer(T.players[i], pos)));
+    for (const t of shuffle([...ai])) t.players[i] = open.get(t).has(pos) ? fillerPlayer(pos) : legends.pop();
+    spare.push(...legends);
+  });
+  // 30 of the leftovers start in free agency, spread across positions; the rest wait to refill it
+  const byPos = POS.map(pos => shuffle(spare.filter(p => p.pos === pos)));
+  const released = [];
+  for (let k = 0; released.length < 30 && byPos.some(a => a.length); k++) { const a = byPos[k % 5]; if (a.length) released.push(a.pop()); }
+  const pool = byPos.flat();
+  const roster = {};
+  for (const pos of POS) {
+    const p = makePlayer(pos, starsTarget(1) + rnd(-.2, .2), ri(21, 30)); p.sal = 1; p.yrs = ri(1, 2); roster[pos] = p;
+    while (p.spd + p.sta + p.sht + p.hnd > 8) { const k = RATE.reduce((a, b) => p[a] >= p[b] ? a : b); p[k]--; }   // your five start at 1 star (8 total or less)
+  }
+  const used = new Set(); for (const pos of POS) { const p = roster[pos]; while (used.has(p.num)) p.num = ri(0, 55); used.add(p.num); }
+  G = { v:2, season:1, week:0, phase:'regular', cash:2, credits:4, fans:25, boosts:[], gpSeason:0, cap:CAP_START, ticket:TICKET_FAIR, speed:10,
+    fac:{ training:1, conditioning:1, arena:1, scouting:1 }, roster, league, schedule:confSchedule(league), results:[],
+    fa:released, pool, history:[], playoffs:null, off:null, last:null, kit:{ j:'home', s:'home' }, fin:{ gate:0, tv:0, bonus:0, spend:0, salaries:0 } };
+  refillFA(FA_SIZE);
+}
+const FA_SIZE = 30;
+// top free agency back up: waiting legends first (every position covered), then made-up players
+function refillFA(n){
+  const pool = G.pool || (G.pool = []);
+  const take = pos => { const i = pool.findIndex(p => !pos || p.pos === pos); if (i < 0) return false; const [p] = pool.splice(i, 1); p.sal = askSalary(p); p.yrs = askYears(p); G.fa.push(p); return true; };
+  for (const pos of POS) if (!G.fa.some(p => p.pos === pos) && !take(pos)) addFA(pos);
+  while (G.fa.length < n && take()) {}
+  while (G.fa.length < n) addFA(pick(POS));
+}
+function addFA(pos){ const p = makePlayer(pos, rnd(3.5, 8), ri(23, 33)); p.sal = askSalary(p); p.yrs = askYears(p); G.fa.push(p); }
+
+/* ============================ save ============================ */
+function migrate(g){
+  if (!g) return g;
+  if (!g.v || g.v < 2) { try { localStorage.setItem(CACHE + '.legacy', JSON.stringify(g)); } catch {} return null; }
+  const fix = p => {
+    if (!p || typeof p.style === 'string') return;
+    const n = parseInt((p.skin || '#c68a61').slice(1), 16), lum = ((n >> 16) + ((n >> 8) & 255) + (n & 255)) / 3;
+    p.tone = lum < 120 ? 'black' : lum < 175 ? 'tan' : 'white';
+    p.skin = TONES[p.tone]; p.hair = pick(HAIR_BY_TONE[p.tone]); p.style = pick(STYLES_BY_TONE[p.tone]);
+  };
+  Object.values(g.roster || {}).forEach(fix); (g.fa || []).forEach(fix); (g.off?.prospects || []).forEach(fix);
+  for (const t of g.league || []) if (!t.c2 || t.c2.toLowerCase() === '#ffffff') t.c2 = SECONDARY[t.c1] || '#1f2a44';
+  if (!g.kit) g.kit = { j:'home', s:'home' };
+  if (g.fans == null) { g.fans = g.hype ?? 25; delete g.hype; }                // hype became fans
+  g.boosts ||= []; g.gpSeason ??= 0; g.fans = Math.max(g.fans, 15);
+  if (g.ticket < TICKET_MIN) g.ticket = TICKET_FAIR;                               // tickets moved to $100-800
+  g.cap ??= CAP_MAX;                                                               // older saves keep the full cap
+  return g;
+}
+function uniqueNum(p){
+  const taken = new Set(POS.map(pos => G.roster[pos]).filter(x => x && x !== p).map(x => x.num));
+  while (taken.has(p.num)) p.num = ri(0, 55);
+}
+const CACHE = 'retrobasket.save.v1';
+let DB = null, saveT = null, chain = Promise.resolve();
+function save(){
+  try { localStorage.setItem(CACHE, JSON.stringify(G)); } catch {}
+  if (!DB) return;
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { const body = { json:JSON.stringify(G), at:Date.now() }; chain = chain.then(() => DB.doc('saves/main').set(body)).catch(e => console.warn(e)); }, 600);
+}
+
+/* ============================ league sim ============================ */
+let lastPoss = null;                                                             // what the last simPossession did, for the box score
+function simPossession(off, def, meter){
+  const P = lastPoss = { to:false, shots:[] };
+  if (Math.random() < .09 + (5 - off.hnd) * .012) { P.to = true; return 0; }        // turnover
+  let pts = 0, tries = 0;
+  while (tries++ < 3) {
+    const r = Math.random(), d = r < .34 ? rnd(23.8, 26) : r < .68 ? rnd(9, 20) : rnd(2, 6);
+    const contested = Math.random() < clamp(.35 + (def.spd - off.spd) * .07, .1, .75);
+    const made = Math.random() < shotChance(meter, d, off.sht, contested);
+    P.shots.push({ three:d > 23.75, made });
+    if (made) { pts = d > 23.75 ? 3 : 2; break; }
+    if (Math.random() > .24 + (off.sta - def.sta) * .015) break;                 // defensive rebound
+  }
+  return pts;
+}
+const teamPlayers = t => t.user ? rosterArr() : (t.players || []);
+const wPick = (arr, w) => { let x = Math.random() * arr.reduce((s, p) => s + w(p), 0); for (const p of arr) { x -= w(p); if (x <= 0) return p; } return arr[0]; };
+const REB_W = { PG:.6, SG:.7, SF:1, PF:1.5, C:2 };
+// hand out the last possession to players: sides are { pl, box (points), pb (other stats) }; def may be null
+function creditPoss(off, def){
+  const P = lastPoss; if (!P || !off.pl.length) return;
+  const passes = ri(0, 3);
+  for (let i = 0; i < passes; i++) pbFor(off.pb, wPick(off.pl, p => .5 + p.hnd)).pass++;
+  if (P.to) { pbFor(off.pb, wPick(off.pl, p => 11 - p.hnd)).to++; return; }
+  P.shots.forEach((s, i) => {
+    const p = wPick(off.pl, p => .5 + p.sht + (s.three ? p.sht * .5 : 0)), b = pbFor(off.pb, p);
+    b.fga++; if (s.three) b.tpa++;
+    if (s.made) { b.fgm++; if (s.three) b.tpm++; off.box[p.id] = (off.box[p.id] || 0) + (s.three ? 3 : 2); return; }
+    const offReb = i < P.shots.length - 1, side = offReb ? off : def;
+    if (side && side.pl.length) pbFor(side.pb, wPick(side.pl, p => REB_W[p.pos])).reb++;
+  });
+}
+// add one game's box score to each player's season and career lines
+function addStats(players, box, pb){
+  for (const p of players) {
+    p.s ||= {}; p.c ||= {};
+    for (const o of [p.s, p.c]) {
+      o.gp = (o.gp || 0) + 1; o.pts = (o.pts || 0) + (box[p.id] || 0);
+      const b = pb[p.id]; if (b) for (const k in b) o[k] = (o[k] || 0) + b[k];
+    }
+  }
+}
+// the other team in a game you played live: build a believable box score that adds up to their final score
+function fakeBox(players, score){
+  const box = {}, pb = {};
+  let left = score;
+  while (left >= 2) {
+    const three = left === 3 || (left >= 5 && Math.random() < .34);
+    const p = wPick(players, p => .5 + p.sht), b = pbFor(pb, p);
+    while (Math.random() > .5) { b.fga++; if (Math.random() < .35) b.tpa++; pbFor(pb, wPick(players, p => REB_W[p.pos])).reb += Math.random() < .25 ? 1 : 0; }
+    b.fga++; b.fgm++; if (three) { b.tpa++; b.tpm++; }
+    box[p.id] = (box[p.id] || 0) + (three ? 3 : 2); left -= three ? 3 : 2;
+    for (let i = ri(0, 2); i > 0; i--) pbFor(pb, wPick(players, p => .5 + p.hnd)).pass++;
+  }
+  for (let i = ri(4, 9); i > 0; i--) pbFor(pb, wPick(players, p => 11 - p.hnd)).to++;
+  addStats(players, box, pb);
+}
+function simScore(h, a, hMeter = .86, aMeter = .86, hBox = null, hPb = null, aBox = null, aPb = null){
+  const H = teamR(h), A = teamR(a);
+  const side = (t, box, pb) => ({ t, pl:teamPlayers(t), box:box || {}, pb:pb || {} });
+  const hS = side(h, hBox, hPb), aS = side(a, aBox, aPb);
+  const go = (o, d, O, D, m) => { const pts = simPossession(O, D, m); creditPoss(o, d); return pts; };
+  let hs = 0, as = 0;
+  const n = 28;
+  for (let i = 0; i < n; i++) { hs += go(hS, aS, H, A, hMeter); as += go(aS, hS, A, H, aMeter); }
+  while (hs === as) { hs += go(hS, aS, H, A, hMeter); as += go(aS, hS, A, H, aMeter); }
+  // computer teams book their own stats; yours go through applyResult
+  for (const S of [hS, aS]) if (!S.t.user) addStats(S.pl, S.box, S.pb);
+  return [hs, as];
+}
+function pickScorer(){
+  const r = rosterArr(), w = r.map(p => .5 + p.sht);
+  let x = Math.random() * w.reduce((s, v) => s + v, 0);
+  for (let i = 0; i < r.length; i++) { x -= w[i]; if (x <= 0) return r[i]; }
+  return r[0];
+}
+function record(h, a, hs, as){ h.pf += hs; h.pa += as; a.pf += as; a.pa += hs; if (hs > as) { h.w++; a.l++; } else { a.w++; h.l++; } }
+const byRecord = (x, y) => (y.w - y.l) - (x.w - x.l) || (y.pf - y.pa) - (x.pf - x.pa);
+const standings = () => [...G.league].sort(byRecord);
+const confStandings = conf => G.league.filter(t => t.conf === conf).sort(byRecord);
+const ROUND_NAME = ['Conference semifinal', 'Conference final', 'The Finals'];
+
+/* ============================ after a game ============================ */
+// Home games: fans fill the arena; every $100 over a $150 ticket keeps about 14% of seats empty.
+// Each fan in the building also buys $18 of food, and every 2.5 fans park one car at $40.
+const TICKET_MIN = 100, TICKET_MAX = 800, TICKET_FAIR = 150, FOOD_PER_FAN = 18, FANS_PER_CAR = 2.5, PARKING = 40;
+const attendance = () => clamp(.3 + G.fans / 100 * .7 - (G.ticket - TICKET_FAIR) / 700, .05, 1);
+function homeGate(){
+  const att = attendance(), crowd = Math.round(seats(G.fac.arena) * att);
+  const tickets = crowd * G.ticket / 1e6, food = crowd * FOOD_PER_FAN / 1e6, parking = Math.round(crowd / FANS_PER_CAR) * PARKING / 1e6;
+  return { att, crowd, tickets, food, parking, total:tickets + food + parking };
+}
+// salary cap: $20M to start, +$10M per 25 credits, up to $70M
+const CAP_START = 20, CAP_MAX = 70, CAP_STEP = 10, CAP_COST = 25;
+const capNow = () => G.cap || CAP_START;
+// training a stat: 2 CR for the first point you add, +1 CR for each point after that (p.tr counts points trained per stat)
+const trainCost = (p, k) => 2 + ((p.tr || {})[k] || 0);
+// credits per game: 2 under 20% fans, then +1 for every 20% (20-40% is 3, ... 80-100% is 6)
+const gameCredits = () => 2 + Math.floor(Math.min(G.fans, 99.9) / 20);
+// every game each player is paid 1/17 of his yearly salary (14 regular-season games + up to 3 playoff games)
+const PAY_GAMES = 17;
+const perGame = p => p.sal / PAY_GAMES;
+// to sign someone you need the cash to pay him for the rest of this season
+// free agents want a signing bonus in cash up front: $250K at 1 star up to $2.5M at 5 stars, to the nearest $50K
+const signBonus = p => Math.round((.25 + (clamp(starsSmooth(p), 1, 5) - 1) * .5625) * 20) / 20;
+const FAN_WIN = 3, FAN_LOSS = -5, FAN_NEW = 1, NEW_GAMES = 3, FAN_MIN = 15;
+function pbFor(pbox, p){ return pbox[p.id] ||= { fgm:0, fga:0, tpm:0, tpa:0, reb:0, pass:0, to:0 }; }
+// credit one simulated possession to our players: makes to a scorer, misses to a shooter plus a possible rebound
+function simCredit(box, pbox){ creditPoss({ pl:rosterArr(), box, pb:pbox }, null); }
+function applyResult(M, us, them, box, pbox = {}){
+  const win = us > them, t = userTeam();
+  if (M.kind === 'regular') M.home ? record(t, M.opp, us, them) : record(M.opp, t, them, us);
+  const H = M.home ? homeGate() : { att:0, crowd:0, tickets:0, food:0, parking:0, total:0 };   // before fans change
+  const att = H.att, gate = H.tickets;
+  G.cash += H.total + TV; G.fin.gate += gate; G.fin.tv += TV;
+  G.fin.food = (G.fin.food || 0) + H.food; G.fin.parking = (G.fin.parking || 0) + H.parking;
+  const cr = gameCredits();                                         // by fans going into the game
+  G.credits += cr;
+  const pay = rosterArr().map(p => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, amt:perGame(p) }));
+  const salaries = pay.reduce((s, x) => s + x.amt, 0);
+  G.cash -= salaries; G.fin.salaries = (G.fin.salaries || 0) + salaries;
+  G.gpSeason = (G.gpSeason || 0) + 1;
+  // fans: the result, plus 1% for each newly signed player's first 3 games
+  const newBoost = (G.boosts || []).length * FAN_NEW;
+  G.boosts = (G.boosts || []).map(n => n - 1).filter(n => n > 0);
+  const fanResult = win ? FAN_WIN : FAN_LOSS;
+  const fansBefore = G.fans;
+  G.fans = clamp(G.fans + fanResult + newBoost, FAN_MIN, 100);
+  for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
+  addStats(rosterArr(), box, pbox);                                 // this season, and career
+  const top = Object.entries(box).map(([id, pts]) => [rosterArr().find(p => p.id === id), pts]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:TV, cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
+}
+function userPlaysThisWeek(){ return G.schedule[G.week]?.some(g => g.h === 'U' || g.a === 'U'); }
+function skipByes(){ while (G.phase === 'regular' && G.week < G.schedule.length && !userPlaysThisWeek()) finishWeek(); }
+function finishWeek(){
+  for (const g of G.schedule[G.week]) {
+    if (g.h === 'U' || g.a === 'U') continue;
+    const h = teamById(g.h), a = teamById(g.a), [hs, as] = simScore(h, a);
+    record(h, a, hs, as);
+  }
+  G.week++;
+  if (G.week >= G.schedule.length) startPlayoffs();
+}
+
+/* ============================ playoffs + offseason ============================ */
+function startPlayoffs(){
+  const E = confStandings('E').slice(0, 4).map(t => t.id), W = confStandings('W').slice(0, 4).map(t => t.id);
+  G.phase = 'playoffs';
+  G.playoffs = { round:0, seeds:[...E, ...W], games:[[E[0], E[3]], [E[1], E[2]], [W[0], W[3]], [W[1], W[2]]], champ:null, reached:-1, userOut:false };
+  G.playoffs.userOut = !G.playoffs.seeds.includes('U');
+}
+function nextPlayoffGame(){
+  const P = G.playoffs;
+  if (P.round > 2 || P.userOut) return null;
+  return P.games.find(m => m.includes('U')) || null;
+}
+// play out the current round (our game uses userWinner), then set up the next one
+function playoffRound(userWinner){
+  const P = G.playoffs;
+  const sim = (h, a) => { const [hs, as] = simScore(teamById(h), teamById(a)); return hs > as ? h : a; };
+  const winners = P.games.map(([h, a]) => (userWinner && (h === 'U' || a === 'U')) ? userWinner : sim(h, a));
+  if (P.games.some(m => m.includes('U'))) { P.reached = P.round; if (!winners.includes('U')) P.userOut = true; }
+  if (P.round === 2) {
+    P.champ = winners[0]; P.round = 3;
+    if (P.reached === 2) {
+      if (P.champ === 'U') { G.cash += 3; G.fin.bonus += 3; G.credits += 10; }
+      else { G.cash += 1; G.fin.bonus += 1; }
+    }
+    startOffseason(); return;
+  }
+  P.games = P.round === 0 ? [[winners[0], winners[1]], [winners[2], winners[3]]] : [[winners[0], winners[1]]];
+  P.round++;
+}
+function resolvePlayoffs(userWinner){
+  if (userWinner) { playoffRound(userWinner); return; }
+  while (G.phase === 'playoffs') playoffRound(null);
+}
+function finishText(){
+  const P = G.playoffs;
+  if (P.champ === 'U') return 'Champions';
+  if (P.reached === 2) return 'Lost in the Finals';
+  if (P.reached === 1) return 'Lost in the conference final';
+  if (P.reached === 0) return 'Lost in the conference semis';
+  return 'Missed the playoffs';
+}
+function grow(p, steps){
+  let guard = 0;
+  while (steps !== 0 && guard++ < 60) {
+    const k = pick(RATE), s = Math.sign(steps);
+    if (s > 0 && (p[k] >= 10 || pAvg(p) + .25 > p.pot)) { if (pAvg(p) + .25 > p.pot) break; continue; }
+    if (s < 0 && p[k] <= 1) continue;
+    p[k] += s; steps -= s;
+  }
+}
+function startOffseason(){
+  const t = userTeam(), finish = finishText();
+  const champ = teamById(G.playoffs.champ);
+  G.history.unshift({ season:G.season, w:t.w, l:t.l, finish, champ:`${champ.city} ${champ.name}` });
+  const changes = [], retired = [];
+  const tf = 1 + .25 * (G.fac.training - 1);
+  for (const pos of POS) {
+    const p = G.roster[pos]; if (!p) continue;
+    const before = pStars(p);
+    let s = p.age <= 21 ? ri(2, 4) : p.age <= 24 ? ri(1, 3) : p.age <= 28 ? ri(0, 1) : p.age <= 31 ? ri(-2, 0) : ri(-3, -1);
+    if (s > 0) s = Math.round(s * tf);
+    grow(p, s); p.age++; p.gp = p.pts = p.fga = p.fgm = 0; p.s = {};
+    if (p.age >= 34 && Math.random() < (p.age - 33) * .3) { retired.push(`${p.fn} ${p.ln} (${pos}, age ${p.age})`); G.roster[pos] = null; continue; }
+    if (pStars(p) !== before) changes.push({ name:`${p.fn} ${p.ln}`, pos, from:before, to:pStars(p) });
+    p.yrs--;
+  }
+  for (const tm of G.league) if (!tm.user) tm.players = tm.players.map(p => {
+    grow(p, p.age <= 22 ? ri(1, 3) : p.age <= 26 ? ri(0, 2) : p.age <= 30 ? ri(-1, 1) : p.age <= 33 ? ri(-2, 0) : ri(-3, -1)); p.age++;
+    if (p.age >= 38 && Math.random() < .5) { const r = makePlayer(p.pos, rnd(4, 6.5), ri(22, 27)); r.sal = askSalary(r); r.yrs = 2; return r; }
+    return p;
+  });
+  const order = standings().reverse().map(x => x.id);
+  const prospects = [];
+  POS.forEach(pos => { for (let i = 0; i < 2; i++) { const p = makePlayer(pos, rnd(2.5, 5.5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1.5, 4.5)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * Math.max(0, 3 - G.fac.scouting + 1) , 1, 10), o), {}); prospects.push(p); } });
+  G.phase = 'offseason';
+  G.off = { step:'summary', finish, champ:`${champ.city} ${champ.name}`, record:`${t.w}-${t.l}`, changes, retired, order, prospects, picks:2, round:1, fin:{ ...G.fin } };
+  save();
+}
+function startNewSeason(){
+  for (const pos of POS) if (!G.roster[pos]) { const p = makePlayer(pos, rnd(2, 3), ri(22, 30)); p.sal = 1; p.yrs = 1; G.roster[pos] = p; }
+  G.season++; G.week = 0; G.phase = 'regular'; G.playoffs = null; G.off = null; G.last = null; G.results = [];
+  for (const t of G.league) t.w = t.l = t.pf = t.pa = 0;
+  for (const p of [...G.league.flatMap(t => t.players || []), ...rosterArr(), ...G.fa, ...(G.pool || [])]) p.s = {};
+  G.schedule = confSchedule(G.league);
+  G.fin = { gate:0, tv:0, bonus:0, spend:0, salaries:0 }; G.gpSeason = 0;
+  // most unsigned free agents move on; legends go back to the waiting pool so they can come around again
+  const left = G.fa.filter(() => Math.random() >= .4); G.fa = G.fa.filter(p => !left.includes(p));
+  G.pool = shuffle([...(G.pool || []), ...left.filter(p => p.legend && p.age < 38)]); refillFA(FA_SIZE);
+  save();
+}
+
+/* ============================ portraits ============================ */
+const portraitCache = {};
+function portrait(p, c1){
+  const key = [p.id, c1, p.style, p.skin, p.hair, p.band, p.face].join('|');
+  if (portraitCache[key]) return portraitCache[key];
+  const S = 20, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d'), f = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  const O = '#1a1426', sh = shade(p.skin, -.16), hi = shade(p.skin, .12), H = p.hair;
+  const st = p.style === 'headband' ? 'bald' : p.style, band = p.band || p.style === 'headband', face = p.face || '';
+  f(2, 15, 16, 5, O); f(3, 16, 14, 4, c1); f(8, 16, 4, 1, '#ffffff');        // shoulders + jersey
+  f(8, 13, 4, 3, O); f(9, 13, 2, 3, p.skin);                                // neck
+  if (st === 'long') { f(4, 2, 12, 11, O); f(5, 3, 10, 9, H); }             // hair behind the head, down past the ears
+  f(5, 3, 10, 11, O); f(6, 4, 8, 9, p.skin); f(5, 7, 1, 3, p.skin); f(14, 7, 1, 3, p.skin);
+  if (st === 'bald') f(8, 4, 3, 1, hi);                                      // shine
+  if (st === 'buzz') { f(6, 4, 8, 1, H); f(6, 5, 1, 1, H); f(13, 5, 1, 1, H); }
+  if (st === 'fade') { f(6, 3, 8, 2, H); f(6, 5, 1, 2, sh); f(13, 5, 1, 2, sh); }
+  if (st === 'afro') { f(4, 1, 12, 5, O); f(5, 1, 10, 5, H); f(4, 5, 2, 3, H); f(14, 5, 2, 3, H); }
+  if (st === 'curly') { f(5, 2, 10, 4, O); f(6, 2, 8, 3, H); [6, 8, 10, 12].forEach(x => f(x, 1, 1, 1, H)); f(5, 5, 1, 2, H); f(14, 5, 1, 2, H); }
+  if (st === 'long') { f(5, 2, 10, 3, O); f(6, 2, 8, 3, H); f(6, 5, 3, 1, H); f(5, 4, 1, 8, H); f(14, 4, 1, 8, H); }
+  if (st === 'cornrows') { f(5, 2, 10, 3, O); f(6, 3, 8, 2, H); [7, 9, 11].forEach(x => f(x, 3, 1, 2, sh)); f(6, 5, 1, 1, H); f(13, 5, 1, 1, H); }
+  if (st === 'hitop') { f(5, 0, 10, 5, O); f(6, 0, 8, 5, H); f(6, 5, 1, 1, sh); f(13, 5, 1, 1, sh); }
+  if (band) { f(5, 5, 10, 1, O); f(6, 5, 8, 1, '#ffffff'); }
+  f(7, 8, 2, 1, '#ffffff'); f(11, 8, 2, 1, '#ffffff'); f(8, 8, 1, 1, O); f(12, 8, 1, 1, O);
+  f(7, 7, 2, 1, O); f(11, 7, 2, 1, O);
+  if (face.includes('unibrow')) f(9, 7, 2, 1, O);
+  f(9, 10, 2, 1, 'rgba(0,0,0,.25)');
+  if (face.includes('beard')) { f(6, 9, 1, 3, H); f(13, 9, 1, 3, H); f(6, 11, 8, 2, H); f(7, 12, 6, 1, H); }
+  if (face.includes('goatee')) { f(8, 12, 4, 1, H); f(8, 10, 4, 1, H); }
+  if (face.includes('stache')) f(8, 10, 4, 1, H);
+  f(8, 11, 4, 1, '#8a3b2e');                                                 // mouth, on top of any beard
+  if (face.includes('goggles')) { f(5, 7, 10, 1, O); f(6, 7, 3, 2, O); f(11, 7, 3, 2, O); f(7, 7, 2, 1, '#bfe3ff'); f(11, 7, 2, 1, '#bfe3ff'); f(7, 8, 1, 1, '#bfe3ff'); f(12, 8, 1, 1, '#bfe3ff'); }
+  return portraitCache[key] = cv.toDataURL();
+}
+
+/* ============================ UI ============================ */
+let screen = 'hub', sel = null;
+const badge = (t, cls = '') => `<div class="badge ${cls}" style="background:${t.c1};border-color:${t.c2};color:${t.c2}">${esc(t.abbr)}</div>`;
+function topBar(title, right = ''){
+  return `<div class="bar"><div class="box num">${G.credits} <span class="yellow">CR</span></div><div class="title">${title}</div><div class="row" style="gap:6px">${right || `<div class="box num ${G.cash < 0 ? 'debt' : ''}">${money(G.cash)}</div>`}</div></div>`;
+}
+function card(p, opts = {}){
+  const t = userTeam();
+  return `<button class="card ${opts.dim ? 'dim' : ''}" ${opts.attr || ''}>
+    <div class="top ${posColor(p.pos)}"><span class="pos">${p.pos}</span><span class="age">${p.age}</span><img src="${portrait(p, t.c1)}" alt=""></div>
+    <div class="bot"><div class="fnm">${esc(p.fn)}</div><div class="nm">#${p.num} ${esc(p.ln)}</div><div>${starsHTML(opts.stars ?? pStars(p))}</div>${opts.fa ? `<div class="fa-x">
+      <div><span>Salary:</span><b class="num">${money(askSalary(p))} × ${askYears(p)}yr</b></div>
+      <div><span>Signing bonus:</span><b class="num">${money(signBonus(p))}</b></div>
+      <div><span>Per game:</span><b class="num">${money(askSalary(p) / PAY_GAMES)}</b></div></div>`
+    : `<div class="sal">${money(p.sal || askSalary(p))}${opts.yrs ? `<span class="muted"> ×${p.yrs}</span>` : ''}</div>`}</div>
+    ${opts.flag ? `<div class="flag">${opts.flag}</div>` : ''}
+  </button>`;
+}
+function capBar(extra = ''){
+  const pr = payroll();
+  return `<div class="capbar"><div class="cap"><div class="t">SALARY CAP <span class="num">${money(pr)} / ${money(capNow())}</span></div><div class="track"><i style="width:${clamp(pr / capNow() * 100, 0, 100)}%"></i></div></div>${extra}</div>`;
+}
+
+function render(){
+  const ui = $('#ui');
+  if (!G) { ui.innerHTML = createHTML(); bindCreate(); return; }
+  const f = { kit:kitHTML, roster:rosterHTML, player:playerHTML, league:leagueHTML, office:officeHTML, fa:faHTML, leaders:leadersHTML, post:postHTML, draft:draftHTML }[screen] || hubHTML;
+  ui.innerHTML = f();
+  window.scrollTo(0, 0);
+}
+
+let createColor = 0;
+let pickedTeam = null;
+function createHTML(){
+  const col = conf => NBA.filter(T => T.conf === conf).sort((a, b) => a.city.localeCompare(b.city)).map(T => `
+    <button class="tpick ${pickedTeam === T.abbr ? 'on' : ''}" data-team="${T.abbr}">
+      <span class="badge sm" style="background:${T.c1};border-color:${T.c2};color:${T.c2 === '#000000' ? '#fff' : T.c2}">${T.abbr}</span>
+      <span class="tn">${esc(T.city)}<br><b>${esc(T.name)}</b></span></button>`).join('');
+  const T = NBA.find(x => x.abbr === pickedTeam);
+  return `<div class="title" style="margin-bottom:8px">RETRO BASKET</div>
+    <div class="muted" style="text-align:center;margin-bottom:10px">Pick your team. You take over the franchise with five 1-star players. 150 all-time legends are scattered across the league, and 30 of them are free agents waiting to sign.</div>
+    <div class="hub"><div class="panel"><div class="label" style="margin-bottom:6px">East</div><div class="tgrid">${col('E')}</div></div>
+    <div class="panel"><div class="label" style="margin-bottom:6px">West</div><div class="tgrid">${col('W')}</div></div></div>
+    <div class="row" style="margin-top:10px"><div class="grow muted">${T ? `${esc(T.city)} ${esc(T.name)} · ${T.conf === 'E' ? 'Eastern' : 'Western'} Conference` : 'Tap a team.'}</div><button class="btn go" id="cGo" ${T ? '' : 'disabled'}>Take the job</button></div>`;
+}
+function bindCreate(){
+  document.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { pickedTeam = b.dataset.team; render(); });
+  const go = $('#cGo'); if (go) go.onclick = () => { if (!pickedTeam) return; newGame(pickedTeam); save(); screen = 'hub'; render(); };
+}
+
+function nextGameInfo(){
+  if (G.phase === 'regular') { skipByes(); if (G.phase !== 'regular') return nextGameInfo(); const u = userTeam(); const g = G.schedule[G.week].find(x => x.h === 'U' || x.a === 'U'); return { opp:teamById(g.h === 'U' ? g.a : g.h), home:g.h === 'U', kind:'regular', label:`Game ${u.w + u.l + 1} of ${SEASON_GAMES}` }; }
+  if (G.phase === 'playoffs') { const m = nextPlayoffGame(); if (!m) return null; return { opp:teamById(m[0] === 'U' ? m[1] : m[0]), home:m[0] === 'U', kind:'playoffs', label:ROUND_NAME[G.playoffs.round] }; }
+  return null;
+}
+function hubHTML(){
+  const t = userTeam(), ur = userRatings();
+  let left;
+  const ng = nextGameInfo();
+  if (ng) {
+    const o = ng.opp, orr = teamR(o);
+    left = `<div class="panel">
+      <div class="row between"><span class="label">${ng.label}</span><span class="label">${ng.home ? 'Home' : 'Away'}</span></div>
+      <div class="vs">
+        <div class="t">${badge(t)}<div class="n">${esc(t.name)}</div>${starsHTML(ur.stars)}<div class="muted num" style="font-size:12px">${t.w}-${t.l}</div></div>
+        <div class="px" style="font-size:18px">VS</div>
+        <div class="t">${badge(o)}<div class="n">${esc(o.name)}</div>${starsHTML(orr.stars)}<div class="muted num" style="font-size:12px">${o.w}-${o.l}</div></div>
+      </div>
+      <div class="row"><button class="btn go grow" data-a="play">Play</button><button class="btn" data-a="sim">Sim</button></div>
+    </div>`;
+  } else if (G.phase === 'playoffs') {
+    left = `<div class="panel stack"><div class="label">Playoffs</div><div>${G.playoffs.seeds.includes('U') ? 'Your season is over.' : 'You missed the top 4 in your conference.'}</div><button class="btn go" data-a="simPlayoffs">Sim the playoffs</button></div>`;
+  } else left = offseasonHTML();
+  return `${topBar(`${esc(t.city)} ${esc(t.name)}`)}
+    <div class="hub">
+      <div>${left}
+        <div class="chips">
+          <div class="chip"><span class="label">Record</span><b class="num">${t.w}-${t.l}</b></div>
+          <div class="chip"><span class="label">Fans</span><b class="num">${Math.round(G.fans)}%</b></div>
+          <div class="chip"><span class="label">Season</span><b class="num">${G.season}</b></div>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="btn" data-go="roster">Roster</button>
+        <button class="btn" data-go="league">Standings</button>
+        <button class="btn" data-go="office">Front office</button>
+        <button class="btn" data-go="fa">Free agents</button>
+        <button class="btn" data-go="leaders">League leaders</button>
+        <button class="btn" data-a="settings">Game speed ${G.speed}x</button>
+        ${G.history.length ? `<div class="panel" style="grid-column:span 2;font-size:13px">${G.history.slice(0, 3).map(h => `<div class="row between"><span>S${h.season} · ${h.w}-${h.l}</span><span class="${h.finish === 'Champions' ? 'yellow' : 'muted'}">${esc(h.finish)}</span></div>`).join('')}</div>` : ''}
+      </div>
+    </div>`;
+}
+function offseasonHTML(){
+  const O = G.off;
+  if (O.step === 'summary') return `<div class="panel stack">
+      <div class="label">Season ${G.season} over</div>
+      <div class="px ${O.finish === 'Champions' ? 'yellow' : ''}" style="font-size:18px">${O.record} · ${esc(O.finish)}</div>
+      <div class="muted" style="font-size:13px">Champions: ${esc(O.champ)}</div>
+      ${O.changes.length ? `<div style="font-size:13px">${O.changes.map(c => `<div class="row between"><span>${c.pos} ${esc(c.name)}</span><span class="${c.to > c.from ? 'good' : 'bad'}">${c.from}★ → ${c.to}★</span></div>`).join('')}</div>` : ''}
+      ${O.retired.length ? `<div class="bad" style="font-size:13px">Retired: ${esc(O.retired.join(', '))}</div>` : ''}
+      <button class="btn go" data-a="offNext">Contracts</button></div>`;
+  if (O.step === 'resign') {
+    const exp = POS.map(pos => G.roster[pos]).filter(p => p && p.yrs <= 0);
+    return `<div class="panel stack">
+      <div class="label">Expiring contracts</div>
+      ${exp.length ? exp.map(p => `<div class="row between" style="font-size:14px"><span>${p.pos} ${esc(p.fn[0])}. ${esc(p.ln)} ${starsHTML(pStars(p))}</span><span class="row" style="gap:6px"><span class="num"><span class="muted">${money(p.sal)} →</span> ${money(resignPrice(p))}×${askYears(p)}</span><button class="btn sm green" data-a="resign" data-pos="${p.pos}">Sign</button><button class="btn sm" data-a="letgo" data-pos="${p.pos}">Go</button></span></div>`).join('') : '<div class="muted">Nobody to re-sign.</div>'}
+      <button class="btn go" data-a="offNext" ${exp.length ? 'disabled' : ''}>To the draft</button></div>`;
+  }
+  if (O.step === 'draft') return `<div class="panel stack"><div class="label">The draft</div><div class="muted">You have ${O.picks} pick${O.picks === 1 ? '' : 's'} left.</div><button class="btn go" data-go="draft">Open the draft</button></div>`;
+  const empty = POS.filter(pos => !G.roster[pos]);
+  return `<div class="panel stack"><div class="label">Free agency</div>
+    <div class="muted" style="font-size:13px">${empty.length ? `Open spots: ${empty.join(', ')}. Sign someone or a walk-on fills in.` : 'Your five are set.'}</div>
+    <button class="btn" data-go="fa">Free agents</button><button class="btn go" data-a="newSeason">Start season ${G.season + 1}</button></div>`;
+}
+
+function rosterHTML(){
+  return `${topBar('Roster', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="cards">${POS.map(pos => G.roster[pos] ? card(G.roster[pos], { attr:`data-player="${pos}"`, yrs:true }) : `<div class="card" style="display:grid;place-items:center;min-height:140px"><div class="px">${pos}<br>EMPTY</div></div>`).join('')}</div>
+    ${capBar(`<div class="box" style="text-align:center"><div class="label">Team</div>${starsHTML(userRatings().stars)}</div>`)}
+    <div class="muted" style="margin-top:8px;font-size:13px">Tap a player to train him with credits.</div>`;
+}
+function statLine(o){
+  o = o || {};
+  const gp = o.gp || 0, per = k => gp ? ((o[k] || 0) / gp).toFixed(1) : '–';
+  const frac = (m, a) => a ? `${m}/${a} <span class="muted">(${Math.round(m / a * 100)}%)</span>` : '–';
+  return `<td class="num">${gp}</td><td class="num">${per('pts')}</td><td class="num">${frac(o.fgm || 0, o.fga || 0)}</td><td class="num">${frac(o.tpm || 0, o.tpa || 0)}</td><td class="num">${per('reb')}</td><td class="num">${per('pass')}</td><td class="num">${per('to')}</td>`;
+}
+function playerHTML(){
+  const p = G.roster[sel]; if (!p) { screen = 'roster'; return rosterHTML(); }
+  const t = userTeam();
+  const cost = k => trainCost(p, k);
+  const atPot = false;                                               // training has no ceiling; only natural growth stops at p.pot
+  return `${topBar(`${esc(p.fn)} ${esc(p.ln)}`, `<button class="btn icon" data-go="roster" aria-label="Back">✕</button>`)}
+    <div class="pp">
+      <div class="face"><div class="top ${posColor(p.pos)}"><img src="${portrait(p, t.c1)}" alt=""></div>
+        <div class="bot"><div class="px">${p.pos} · #${p.num}</div>${starsHTML(pStars(p))}<div class="muted num" style="font-size:12px">Age ${p.age} · Max ${potStars(p)}★</div><div class="num" style="font-size:12px">${money(p.sal)} × ${p.yrs}yr</div></div></div>
+      <div>
+        ${RATE.map(k => `<div class="rt"><span class="nm">${RATE_NAME[k]}</span>
+          <div class="segs">${Array.from({ length:10 }, (_, i) => `<i class="${i < p[k] ? 'on' : ''}"></i>`).join('')}</div>
+          <span class="px num" style="text-align:right">${p[k]}/10</span>
+          <button class="btn sm go" data-train="${k}" ${p[k] >= 10 || G.credits < cost(k) ? 'disabled' : ''}>${p[k] >= 10 ? 'MAX' : `+1 · <span class="num">${cost(k)}</span>CR`}</button></div>
+          <div class="muted" style="font-size:12px;margin:-6px 0 8px">${RATE_DESC[k]}</div>`).join('')}
+        <div class="muted" style="font-size:13px">Training starts at <span class="num">2</span> credits a point and each point in the same stat costs <span class="num">1</span> more (you have <span class="num">${G.credits}</span> CR).${p.gp ? ` ${(p.pts / p.gp).toFixed(1)} PPG this season.` : ''}</div>
+        <div class="panel" style="margin-top:10px;overflow-x:auto;padding:6px 10px">
+          <div class="label" style="margin-bottom:2px">Stats</div>
+          <table class="pst"><thead><tr><th></th><th>GP</th><th>PPG</th><th>FG</th><th>3PT</th><th>REB</th><th>PASS</th><th>TO</th></tr></thead>
+          <tbody><tr><td>Season</td>${statLine(p.s)}</tr><tr><td>Career</td>${statLine(p.c)}</tr></tbody></table>
+          <div class="muted" style="font-size:11px;margin-top:3px">Rebounds, passes and turnovers are per game.</div>
+        </div>
+        <div class="row" style="margin-top:10px"><button class="btn red sm" data-a="release">Release (costs ${money(p.sal * p.yrs * .5)})</button></div>
+      </div>
+    </div>`;
+}
+function draftHTML(){
+  const O = G.off;
+  const err = Math.max(0, 3 - G.fac.scouting + 1);
+  return `${topBar(`<span class="st">★★★</span> Draft round ${O.round} <span class="st">★★★</span>`, `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="cards">${O.prospects.map(p => { const shown = { ...p, ...p.scout }; return card(p, { attr:`data-prospect="${p.id}"`, stars:pStars(shown) }); }).join('')}</div>
+    ${capBar(`<button class="btn" data-go="roster">Roster</button><div class="box" style="text-align:center"><div class="label">Picks</div><div class="num">${O.picks}</div></div><button class="btn go icon" data-a="draftDone" aria-label="Done">➜</button>`)}
+    <div class="muted" style="font-size:12px;margin-top:6px">Tap a prospect to see him. Drafting replaces your player at that position. Ratings shown within ±${err}.</div>`;
+}
+function faHTML(){
+  const room = capNow() - payroll();
+  const list = [...G.fa].sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || pAvg(b) - pAvg(a));
+  return `${topBar('Free agents', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="cards">${list.map(p => { const need = signBonus(p); const cur = G.roster[p.pos]; const newPay = payroll() - (cur ? cur.sal : 0) + askSalary(p);
+      const why = G.cash < need ? `NEEDS <span class="num">${money(need)}</span> CASH` : newPay > capNow() ? 'NO CAP ROOM' : ''; return card(p, { attr:`data-fa="${p.id}"`, dim:!!why, flag:why, fa:true }); }).join('')}</div>
+    ${capBar(`<div class="box" style="text-align:center"><div class="label">Cash</div><div class="num ${G.cash < 0 ? 'debt' : ''}">${money(G.cash)}</div></div>`)}
+    <div class="muted" style="font-size:12px;margin-top:6px">Signing someone replaces your player at that position. You pay his signing bonus in cash when he signs, then 1/17 of his salary every game. Cap room: <span class="num">${money(room)}</span>.</div>`;
+}
+function leagueHTML(){
+  const table = conf => `<div class="panel" style="overflow-x:auto"><div class="label" style="margin-bottom:4px">${conf === 'E' ? 'East' : 'West'}</div><table><thead><tr><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Team</th></tr></thead><tbody>
+    ${confStandings(conf).map((t, i) => `<tr class="${t.user ? 'me' : ''} ${i === 4 ? 'cut' : ''}"><td>${i + 1}. ${esc(t.abbr)} ${esc(t.name)}</td><td class="num">${t.w}</td><td class="num">${t.l}</td><td class="num">${t.pf - t.pa > 0 ? '+' : ''}${t.pf - t.pa}</td><td>${starsHTML(teamR(t).stars)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  return `${topBar('Standings', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="hub">${table('E')}${table('W')}</div><div class="muted" style="font-size:12px;margin-top:6px">Top 4 in each conference make the playoffs.</div>`;
+}
+// every player on a team this season, ranked by any stat; per-game stats and percentages from p.s
+const LCOLS = [
+  { k:'gp', h:'GP', v:o => o.gp || 0, f:v => v },
+  { k:'ppg', h:'PPG', v:o => o.gp ? (o.pts || 0) / o.gp : null, f:v => v.toFixed(1) },
+  { k:'fgp', h:'FG%', v:o => o.fga ? o.fgm / o.fga : null, f:v => (v * 100).toFixed(1) },
+  { k:'tpp', h:'3PT%', v:o => o.tpa ? o.tpm / o.tpa : null, f:v => (v * 100).toFixed(1) },
+  { k:'tpm', h:'3PM', v:o => o.gp ? (o.tpm || 0) / o.gp : null, f:v => v.toFixed(1) },
+  { k:'rpg', h:'RPG', v:o => o.gp ? (o.reb || 0) / o.gp : null, f:v => v.toFixed(1) },
+  { k:'apg', h:'PASS', v:o => o.gp ? (o.pass || 0) / o.gp : null, f:v => v.toFixed(1) },
+  { k:'tov', h:'TO', v:o => o.gp ? (o.to || 0) / o.gp : null, f:v => v.toFixed(1) },
+  { k:'pts', h:'PTS', v:o => o.pts || 0, f:v => v },
+];
+const lead = { k:'ppg', asc:false, pos:'', team:'' };
+function leadersHTML(){
+  const col = LCOLS.find(c => c.k === lead.k) || LCOLS[1];
+  let rows = G.league.flatMap(t => teamPlayers(t).map(p => ({ p, t, o:p.s || {} })));
+  if (lead.pos) rows = rows.filter(r => r.p.pos === lead.pos);
+  if (lead.team) rows = rows.filter(r => r.t.abbr === lead.team);
+  rows.forEach(r => r.v = col.v(r.o));
+  // players with nothing to rank on (no attempts, no games) always sit at the bottom
+  rows.sort((a, b) => (a.v === null) - (b.v === null) || (lead.asc ? a.v - b.v : b.v - a.v) || pAvg(b.p) - pAvg(a.p));
+  const teams = [...G.league].sort((a, b) => a.abbr.localeCompare(b.abbr));
+  const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
+  return `${topBar('League leaders', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="lfilt">
+      <select id="lPos" aria-label="Position">${opt('', 'All positions', lead.pos)}${POS.map(p => opt(p, p, lead.pos)).join('')}</select>
+      <select id="lTeam" aria-label="Team">${opt('', 'All teams', lead.team)}${teams.map(t => opt(t.abbr, `${t.abbr} ${t.name}${t.user ? ' (you)' : ''}`, lead.team)).join('')}</select>
+      <span class="muted grow" style="font-size:12px;align-self:center">Season ${G.season} · tap a column to rank by it, tap again to flip</span>
+    </div>
+    <div class="panel" style="overflow-x:auto;padding:6px 8px">
+      <table class="lt"><thead><tr><th>#</th><th style="text-align:left">Player</th><th style="text-align:left">Team</th><th>★</th>
+        ${LCOLS.map(c => `<th><button data-a="lsort" data-k="${c.k}" class="${c.k === col.k ? 'on' : ''}">${c.h}${c.k === col.k ? (lead.asc ? '▲' : '▼') : ''}</button></th>`).join('')}</tr></thead>
+      <tbody>${rows.map((r, i) => `<tr class="${r.t.user ? 'me' : ''} ${r.o.gp ? '' : 'zero'}"><td class="num">${i + 1}</td>
+        <td class="nm2">${r.p.pos} ${esc(r.p.fn)} ${esc(r.p.ln)}</td><td class="tm">${esc(r.t.abbr)}</td><td class="num">${pStars(r.p)}</td>
+        ${LCOLS.map(c => { const v = c.v(r.o); return `<td class="num ${c.k === col.k ? 'sorted' : ''}">${v === null ? '–' : c.f(v)}</td>`; }).join('')}</tr>`).join('')}
+      </tbody></table>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:6px">${rows.length} players. PPG, 3PM, RPG, PASS and TO are per game.</div>`;
+}
+function gateText(){
+  const H = homeGate();
+  return `${Math.round(H.att * 100)}% full · ${H.crowd.toLocaleString()} fans<br>Tickets ${money(H.tickets)} + food ${money(H.food)} + parking ${money(H.parking)} = <b class="good">${money(H.total)}</b> a home game`;
+}
+function officeHTML(){
+  const f = G.fin, cap = capNow();
+  return `${topBar('Front office', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="hub">
+      <div class="stack">
+        <div class="panel">
+          <div class="row between"><span class="label">Cash</span><span class="px num ${G.cash < 0 ? 'debt' : 'good'}" style="font-size:18px">${money(G.cash)}</span></div>
+          <div class="muted num" style="font-size:12px;margin-top:4px;font-weight:500">This season: tickets ${money(f.gate)} · food ${money(f.food || 0)} · parking ${money(f.parking || 0)} · TV ${money(f.tv)}${f.bonus ? ` · playoffs ${money(f.bonus)}` : ''} · salaries -${money(f.salaries || 0)} · signing bonuses -${money(f.bonuses || 0)} · upgrades -${money(f.spend)}</div>
+          <div class="muted" style="font-size:12px;margin-top:4px">Each game your players are paid 1/17 of their salary (<span class="num">${money(payroll() / PAY_GAMES)}</span> a game right now). Cash also pays for upgrades and signing bonuses.</div>
+        </div>
+        <div class="panel">
+          <div class="row between"><span class="label">Ticket price</span><span class="px num" id="tp">$${G.ticket}</span></div>
+          <input type="range" id="ticket" min="${TICKET_MIN}" max="${TICKET_MAX}" step="10" value="${G.ticket}" style="width:100%;accent-color:#ffd23f" aria-label="Ticket price">
+          <div class="muted num" style="font-size:12px;font-weight:500" id="ti">${gateText()}</div>
+        </div>
+        <div class="panel row"><div class="grow"><div class="px" style="font-size:13px">Salary cap <span class="yellow num">${money(cap)}</span></div>
+          <div class="muted" style="font-size:12px">Your payroll can't go over it. Each upgrade adds <span class="num">${money(CAP_STEP)}</span>, up to <span class="num">${money(CAP_MAX)}</span>. Paid in credits (you have <span class="num">${G.credits}</span>).</div></div>
+          ${cap < CAP_MAX ? `<button class="btn sm go" data-a="capUp" ${G.credits < CAP_COST ? 'disabled' : ''}>${CAP_COST} CR</button>` : '<span class="px yellow">MAX</span>'}</div>
+      </div>
+      <div class="stack">${Object.entries(FAC).map(([k, F]) => { const lv = G.fac[k], c = FAC_COST[lv];
+        return `<div class="panel row"><div class="grow"><div class="px" style="font-size:13px">${F.name} <span class="yellow">LV${lv}</span></div><div class="muted" style="font-size:12px">${F.desc(lv)}</div></div>${lv < 5 ? `<button class="btn sm go" data-up="${k}" ${G.cash < c ? 'disabled' : ''}>${money(c)}</button>` : '<span class="px yellow">MAX</span>'}</div>`; }).join('')}</div>
+    </div>`;
+}
+// earnings minus costs for the game just played
+function postMoney(L){
+  const food = L.food || 0, parking = L.parking || 0;
+  const earn = L.gate + food + parking + L.tv, net = earn - L.salaries;
+  const line = (label, v, cls = '') => `<div class="row between"><span>${label}</span><span class="num ${cls}">${v}</span></div>`;
+  return `<div class="panel" style="font-size:14px">
+    <div class="label" style="margin-bottom:4px">Earnings</div>
+    ${L.gate ? `${line(`Tickets <span class="muted num">(${(L.crowd || 0).toLocaleString()} fans · ${Math.round(L.att * 100)}% full)</span>`, '+' + money(L.gate), 'good')}
+      ${line('Food', '+' + money(food), 'good')}${line('Parking', '+' + money(parking), 'good')}` : line('Tickets, food, parking <span class="muted">(away game)</span>', '$0', 'muted')}
+    ${line('TV money', '+' + money(L.tv), 'good')}
+    <div class="label" style="margin:8px 0 4px">Costs</div>
+    ${L.pay.map(x => line(`<span class="muted">${x.pos}</span> ${esc(x.name)}`, '-' + money(x.amt), 'bad')).join('')}
+    <div class="row between" style="border-top:2px solid rgba(255,255,255,.2);margin-top:6px;padding-top:4px"><b>Net</b><b class="num ${net >= 0 ? 'good' : 'bad'}">${net >= 0 ? '+' : '-'}${money(Math.abs(net))}</b></div>
+    ${line('Cash now', money(L.cash), L.cash < 0 ? 'debt' : '')}
+  </div>`;
+}
+function postHTML(){
+  const L = G.last; if (!L) return hubHTML();
+  const o = teamById(L.opp), t = userTeam();
+  return `${topBar(L.win ? '<span class="good">Win</span>' : '<span class="bad">Loss</span>')}
+    <div class="hub">
+      <div class="panel"><div class="vs">
+        <div class="t">${badge(t)}<div class="px num" style="font-size:28px">${L.us}</div></div><div class="px muted">FINAL</div>
+        <div class="t">${badge(o)}<div class="px num" style="font-size:28px">${L.them}</div></div></div>
+        ${L.top.map(x => `<div class="row between" style="font-size:14px"><span>${x.pos} ${esc(x.name)}</span><span class="px num">${x.pts} PTS</span></div>`).join('')}
+      </div>
+      <div class="stack">
+        ${L.pay ? postMoney(L) : ''}
+        <div class="panel" style="font-size:14px">
+          <div class="label" style="margin-bottom:4px">Fans</div>
+          <div class="row between"><span>${L.win ? 'Win' : 'Loss'}</span><span class="${L.fanResult >= 0 ? 'good' : 'bad'} num">${L.fanResult >= 0 ? '+' : ''}${L.fanResult}%</span></div>
+          ${L.newBoost ? `<div class="row between"><span>New signing${L.newBoost > 1 ? 's' : ''}</span><span class="good num">+${L.newBoost}%</span></div>` : ''}
+          <div class="row between" style="border-top:2px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px"><span>Fans now</span><span class="num">${Math.round(L.fansBefore)}% → <b>${Math.round(L.fans)}%</b></span></div>
+          <div class="row between"><span>Credits</span><span class="yellow num">+${L.cr}</span></div>
+        </div>
+        <button class="btn go" data-go="hub">Continue</button>
+      </div>
+    </div>`;
+}
+
+/* ---- sheets / toast ---- */
+let closeFn = null;
+function openSheet(html, mount){
+  closeSheet();
+  const bg = document.createElement('div'); bg.className = 'sheet-bg';
+  const sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog');
+  sh.innerHTML = `<div class="inner">${html}</div>`;
+  document.body.append(bg, sh);
+  closeFn = () => { bg.remove(); sh.remove(); closeFn = null; };
+  bg.onclick = closeSheet; mount?.(sh);
+}
+function closeSheet(){ closeFn?.(); }
+let toastT;
+function toast(m){ document.querySelector('.toast')?.remove(); clearTimeout(toastT); const e = document.createElement('div'); e.className = 'toast'; e.textContent = m; document.body.append(e); toastT = setTimeout(() => e.remove(), 2600); }
+
+function compareSheet(p, verb, onYes, shown, extra = ''){
+  const cur = G.roster[p.pos];
+  const show = shown || p;
+  const rows = RATE.map(k => `<div class="row between" style="font-size:14px"><span>${RATE_NAME[k]}</span><span class="num">${cur ? `${cur[k]} → ` : ''}<b class="${cur && show[k] > cur[k] ? 'good' : cur && show[k] < cur[k] ? 'bad' : ''}">${show[k]}</b></span></div>`).join('');
+  openSheet(`<div class="row"><img src="${portrait(p, userTeam().c1)}" style="width:64px;height:64px;image-rendering:pixelated;border:3px solid #fff;border-radius:6px" class="${posColor(p.pos)}" alt="">
+      <div><div class="px">${p.pos} ${esc(p.fn)} ${esc(p.ln)}</div>${starsHTML(pStars(show))}<div class="muted" style="font-size:13px">Age ${p.age} · Max ${potStars(p)}★ · ${money(p.sal)} × ${p.yrs}yr</div></div></div>
+    ${rows}
+    ${extra}
+    ${cur ? `<div class="muted" style="font-size:13px">He replaces ${esc(cur.fn)} ${esc(cur.ln)}, who leaves the team.</div>` : ''}
+    <div class="row"><button class="btn go grow" id="yes">${verb}</button><button class="btn" id="no">Cancel</button></div>`, sh => {
+    sh.querySelector('#no').onclick = closeSheet;
+    sh.querySelector('#yes').onclick = () => { closeSheet(); onYes(); };
+  });
+}
+function replaceAt(p){
+  const cur = G.roster[p.pos];
+  if (cur) { cur.sal = askSalary(cur); cur.yrs = askYears(cur); if (cur.age < 34) G.fa.push(cur); }
+  p.gp = p.pts = p.fga = p.fgm = 0; p.s = {};
+  G.roster[p.pos] = p; uniqueNum(p);
+}
+
+/* ---- events ---- */
+$('#ui').addEventListener('click', ev => {
+  const go = ev.target.closest('[data-go]'); if (go) { screen = go.dataset.go; render(); return; }
+  const kt = ev.target.closest('[data-kit]');
+  if (kt) { const [who, part, v] = kt.dataset.kit.split('|'); kitSel[who][part] = v; render(); return; }
+  const pl = ev.target.closest('[data-player]'); if (pl) { sel = pl.dataset.player; screen = 'player'; render(); return; }
+  const tr = ev.target.closest('[data-train]');
+  if (tr) { const p = G.roster[sel], k = tr.dataset.train, c = trainCost(p, k); if (G.credits >= c && p[k] < 10) { G.credits -= c; p[k]++; (p.tr ||= {})[k] = (p.tr[k] || 0) + 1; p.sal = Math.max(p.sal, 1); save(); render(); } return; }
+  const up = ev.target.closest('[data-up]');
+  if (up) { const k = up.dataset.up, c = FAC_COST[G.fac[k]]; if (G.cash >= c) { G.cash -= c; G.fin.spend += c; G.fac[k]++; save(); render(); toast(`${FAC[k].name} is now level ${G.fac[k]}.`); } return; }
+  const fa = ev.target.closest('[data-fa]');
+  if (fa) {
+    const p = G.fa.find(x => x.id === fa.dataset.fa); if (!p) return;
+    const need = signBonus(p), cur = G.roster[p.pos];
+    if (G.cash < need) { toast(`His signing bonus is ${money(need)}. You have ${money(G.cash)}.`); return; }
+    if (payroll() - (cur ? cur.sal : 0) + askSalary(p) > capNow()) { toast('Not enough cap room.'); return; }
+    p.sal = askSalary(p); p.yrs = askYears(p);
+    compareSheet(p, `Sign him · <span class="num">${money(need)}</span>`, () => {
+      G.cash -= need; G.fin.bonuses = (G.fin.bonuses || 0) + need;
+      G.fa = G.fa.filter(x => x !== p); replaceAt(p); G.boosts.push(NEW_GAMES); save(); render();
+      toast(`Signed ${p.fn} ${p.ln} for a ${money(need)} bonus. +${FAN_NEW}% fans for his first ${NEW_GAMES} games.`);
+    }, null, `<div class="panel num" style="font-size:13px;padding:6px 10px"><div class="row between"><span>Signing bonus (now)</span><b>${money(need)}</b></div><div class="row between"><span>Salary</span><b>${money(p.sal)} × ${p.yrs}yr</b></div><div class="row between"><span>Cost per game</span><b>${money(p.sal / PAY_GAMES)}</b></div></div>`);
+    return;
+  }
+  const pr = ev.target.closest('[data-prospect]');
+  if (pr) {
+    const O = G.off, p = O.prospects.find(x => x.id === pr.dataset.prospect); if (!p) return;
+    if (O.picks <= 0) { toast('No picks left.'); return; }
+    compareSheet(p, 'Draft him', () => {
+      O.prospects = O.prospects.filter(x => x !== p); O.picks--; O.round = 3 - O.picks;
+      replaceAt(p); G.boosts.push(NEW_GAMES); aiDraft(); save(); render(); toast(`Drafted ${p.fn} ${p.ln}.`);
+    }, { ...p, ...p.scout });
+    return;
+  }
+  const a = ev.target.closest('[data-a]'); if (!a) return;
+  const act = a.dataset.a, O = G.off;
+  if (act === 'play') {
+    const ng = nextGameInfo();
+    kitSel = { us:{ ...(G.kit || { j:'home', s:'home' }) }, them:ng.home ? { j:'away', s:'away' } : { j:'home', s:'home' } };
+    if (!ng.home && kitSel.us.j === 'home') kitSel.us = { j:'away', s:'away' };
+    screen = 'kit'; render();
+  }
+  else if (act === 'tipoff') { G.kit = { ...kitSel.us }; save(); screen = 'hub'; startMatch(); }
+  else if (act === 'sim') simMatch();
+  else if (act === 'simPlayoffs') { resolvePlayoffs(null); if (G.phase === 'playoffs') resolvePlayoffs(null); save(); render(); }
+  else if (act === 'settings') speedSheet();
+  else if (act === 'capUp') { if (G.credits >= CAP_COST && capNow() < CAP_MAX) { G.credits -= CAP_COST; G.cap = Math.min(CAP_MAX, capNow() + CAP_STEP); save(); render(); toast(`Salary cap is now ${money(G.cap)}.`); } }
+  else if (act === 'lsort') { const k = a.dataset.k; if (lead.k === k) lead.asc = !lead.asc; else { lead.k = k; lead.asc = k === 'tov'; } render(); }
+  else if (act === 'offNext') { O.step = O.step === 'summary' ? 'resign' : O.step === 'resign' ? 'draft' : 'fa'; save(); render(); }
+  else if (act === 'resign') { const p = G.roster[a.dataset.pos]; const price = resignPrice(p), np = payroll() - p.sal + price; if (np > capNow()) { toast('Not enough cap room.'); return; } p.sal = price; p.yrs = askYears(p); save(); render(); }
+  else if (act === 'letgo') { const p = G.roster[a.dataset.pos]; G.roster[p.pos] = null; p.sal = askSalary(p); p.yrs = askYears(p); if (p.age < 34) G.fa.push(p); save(); render(); }
+  else if (act === 'draftDone') { O.step = 'fa'; screen = 'hub'; save(); render(); }
+  else if (act === 'newSeason') { startNewSeason(); render(); }
+  else if (act === 'release') {
+    const p = G.roster[sel], cost = p.sal * p.yrs * .5;
+    openSheet(`<div class="px">Release ${esc(p.fn)} ${esc(p.ln)}?</div><div class="muted">It costs ${money(cost)} cash. A walk-on takes his spot until you sign someone.</div><div class="row"><button class="btn red grow" id="yes">Release</button><button class="btn" id="no">Cancel</button></div>`, sh => {
+      sh.querySelector('#no').onclick = closeSheet;
+      sh.querySelector('#yes').onclick = () => {
+        if (G.cash < cost) { closeSheet(); toast(`You need ${money(cost)} cash to release him. You have ${money(G.cash)}.`); return; }
+        G.cash -= cost; G.fin.spend += cost;
+        const w = makePlayer(p.pos, rnd(2, 3), ri(22, 30)); w.sal = 1; w.yrs = 1;
+        p.sal = askSalary(p); p.yrs = askYears(p); G.fa.push(p); G.roster[p.pos] = w;
+        closeSheet(); screen = 'roster'; save(); render(); toast(`Released ${p.ln}. ${w.fn} ${w.ln} walks on.`);
+      };
+    });
+  }
+});
+$('#ui').addEventListener('input', ev => {
+  if (ev.target.id !== 'ticket') return;
+  G.ticket = +ev.target.value;
+  $('#tp').textContent = '$' + G.ticket;
+  $('#ti').innerHTML = gateText();
+});
+$('#ui').addEventListener('change', ev => {
+  if (ev.target.id === 'ticket') save();
+  if (ev.target.id === 'lPos') { lead.pos = ev.target.value; render(); }
+  if (ev.target.id === 'lTeam') { lead.team = ev.target.value; render(); }
+});
+function aiDraft(){
+  const O = G.off;
+  const n = Math.min(O.prospects.length, ri(3, 5));
+  for (let i = 0; i < n; i++) { const best = [...O.prospects].sort((a, b) => b.pot - a.pot)[ri(0, 1)] || O.prospects[0]; O.prospects = O.prospects.filter(x => x !== best); }
+  while (O.prospects.length < 10) { const pos = pick(POS); const p = makePlayer(pos, rnd(2.5, 5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1, 4)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * Math.max(0, 3 - G.fac.scouting + 1), 1, 10), o), {}); O.prospects.push(p); }
+}
+function speedSheet(inGame){
+  openSheet(`<div class="px">Game speed</div><div class="muted" style="font-size:13px">How fast the game clock runs. At 10x a 15:00 quarter takes 90 seconds.</div>
+    <div class="row">${[5, 10, 15].map(s => `<button class="btn grow ${G.speed === s ? 'go' : ''}" data-s="${s}">${s}x</button>`).join('')}</div>
+    ${inGame ? `<div class="row"><button class="btn grow" id="res">Resume</button><button class="btn" id="simr">Sim rest</button></div>` : ''}`, sh => {
+    sh.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; save(); closeSheet(); if (!inGame) render(); else paused = false; });
+    if (inGame) { sh.querySelector('#res').onclick = () => { closeSheet(); paused = false; }; sh.querySelector('#simr').onclick = () => { closeSheet(); simRest(); }; }
+  });
+}
+
+/* ============================ matches ============================ */
+function endMatch(M, us, them, box, pbox){
+  applyResult(M, us, them, box, pbox);
+  if (M.kind === 'regular') { G.results[G.week] = { us, them }; finishWeek(); }
+  else resolvePlayoffs(us > them ? 'U' : M.opp.id);
+  save(); screen = 'post'; render();
+}
+function simMatch(){
+  const ng = nextGameInfo(); if (!ng) return;
+  const box = {}, pbox = {}, t = userTeam();
+  let us, them;
+  if (ng.home) [us, them] = simScore(t, ng.opp, .84, .86, box, pbox);
+  else [them, us] = simScore(ng.opp, t, .86, .84, null, null, box, pbox);
+  endMatch(ng, us, them, box, pbox);
+}
+
+/* ============================ uniforms ============================ */
+const KIT = ['home', 'away', 'alt'];
+const KIT_NAME = { home:'Home', away:'Away', alt:'Alt' };
+function uniColors(team, k){
+  const main = team.c1, sec = team.c2, W = '#ffffff';
+  const jersey = { home:{ J:main, T:W }, away:{ J:W, T:main }, alt:{ J:sec, T:main } }[k.j];
+  const shorts = { home:{ P:main, R:W }, away:{ P:W, R:main }, alt:{ P:sec, R:main } }[k.s];
+  return { J:jersey.J, j:shade(jersey.J, -.18), T:jersey.T, P:shorts.P, p:shade(shorts.P, -.18), R:shorts.R };
+}
+const MODEL = { id:'model', skin:TONES.tan, hair:'#1b1410', style:'fade' };
+function previewImg(team, k, num){
+  const spr = sprite(MODEL, uniColors(team, k), 'stand');
+  const c = document.createElement('canvas'); c.width = 32; c.height = (spr.height + 2) * 2;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(2, 2); g.drawImage(spr, 1, 1); drawNumber(g, 1, 1 + spr.numRow, num, uniColors(team, k).T);
+  return c.toDataURL();
+}
+let kitSel = null;
+function kitHTML(){
+  const ng = nextGameInfo(), t = userTeam(), o = ng.opp;
+  const side = (who, team, k) => `<div class="panel kitp">
+      <div class="row between"><span class="px">${esc(team.city)} ${esc(team.name)}</span>${badge(team, 'sm')}</div>
+      <img class="kitimg" src="${previewImg(team, k, who === 'us' ? 23 : 7)}" alt="Uniform preview">
+      ${['j', 's'].map(part => `<div class="kitrow"><span class="label">${part === 'j' ? 'Jersey' : 'Shorts'}</span>
+        <div class="seg">${KIT.map(v => `<button class="btn sm ${k[part] === v ? 'go' : ''}" data-kit="${who}|${part}|${v}">${KIT_NAME[v]}</button>`).join('')}</div></div>`).join('')}
+    </div>`;
+  return `${topBar('Uniforms', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="hub">${side('us', t, kitSel.us)}${side('them', o, kitSel.them)}</div>
+    <div class="row" style="margin-top:10px"><div class="muted grow" style="font-size:13px">${ng.home ? 'Home game' : `Away at ${esc(o.city)}`}. Pick both teams' looks, then tip off.</div><button class="btn go" data-a="tipoff">Tip off</button></div>`;
+}
+
+/* ============================ ENGINE ============================ */
+const CW = 320, CH = 180, PXF = 4.6, PYF = 2.55, PZF = 3.5, X0 = 16, Y0 = 44;
+const RIM_R = { x:88.75, y:25 }, RIM_L = { x:5.25, y:25 }, RIM_Z = 10;
+const WORLD_W = Math.ceil(X0 * 2 + 94 * PXF);
+const cv = $('#court'), ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+const courtCv = document.createElement('canvas'); courtCv.width = WORLD_W; courtCv.height = CH;
+let cam = 0;
+const sx = x => X0 + x * PXF - cam, sy = (y, z = 0) => Y0 + y * PYF - z * PZF;
+const OUR_SPOTS = [{x:64.5,y:25},{x:67,y:7},{x:67,y:43},{x:87.5,y:3},{x:87.5,y:47},{x:74,y:17},{x:74,y:33},{x:83.5,y:19.5},{x:83.5,y:30.5},{x:78,y:11},{x:78,y:39},{x:85.5,y:25}];
+const THEIR_SPOTS = OUR_SPOTS.map(s => ({ x:94 - s.x, y:s.y }));
+const isThree = (p, rim) => { const d = Math.hypot(p.x - rim.x, p.y - rim.y); return (p.y < 3 || p.y > 47) ? d > 22 : d > 23.75; };
+
+const FONT = {
+  'A':['.#.','#.#','###','#.#','#.#'],
+  'B':['##.','#.#','##.','#.#','##.'],
+  'C':['.##','#..','#..','#..','.##'],
+  'D':['##.','#.#','#.#','#.#','##.'],
+  'E':['###','#..','##.','#..','###'],
+  'F':['###','#..','##.','#..','#..'],
+  'G':['.##','#..','#.#','#.#','.##'],
+  'H':['#.#','#.#','###','#.#','#.#'],
+  'I':['###','.#.','.#.','.#.','###'],
+  'J':['..#','..#','..#','#.#','.#.'],
+  'K':['#.#','#.#','##.','#.#','#.#'],
+  'L':['#..','#..','#..','#..','###'],
+  'M':['#.#','###','###','#.#','#.#'],
+  'N':['##.','#.#','#.#','#.#','#.#'],
+  'O':['.#.','#.#','#.#','#.#','.#.'],
+  'P':['##.','#.#','##.','#..','#..'],
+  'Q':['.#.','#.#','#.#','##.','.##'],
+  'R':['##.','#.#','##.','#.#','#.#'],
+  'S':['.##','#..','.#.','..#','##.'],
+  'T':['###','.#.','.#.','.#.','.#.'],
+  'U':['#.#','#.#','#.#','#.#','###'],
+  'V':['#.#','#.#','#.#','#.#','.#.'],
+  'W':['#.#','#.#','###','###','#.#'],
+  'X':['#.#','#.#','.#.','#.#','#.#'],
+  'Y':['#.#','#.#','.#.','.#.','.#.'],
+  'Z':['###','..#','.#.','#..','###'],
+  ' ':['...','...','...','...','...'],
+  '0':['###','#.#','#.#','#.#','###'],'1':['.#.','##.','.#.','.#.','###'],'2':['###','..#','###','#..','###'],'3':['###','..#','###','..#','###'],'4':['#.#','#.#','###','..#','..#'],
+  '5':['###','#..','###','..#','###'],'6':['###','#..','###','#.#','###'],'7':['###','..#','.#.','.#.','.#.'],'8':['###','#.#','###','#.#','###'],'9':['###','#.#','###','..#','###']
+};
+// t: home team, away: visitors, fill: share of seats taken, awayLeft: the visitors' bench is on the left half
+function buildCourt(t, away, fill = .7, awayLeft = true){
+  const c = courtCv.getContext('2d');
+  c.fillStyle = '#16204a'; c.fillRect(0, 0, WORLD_W, CH);
+  const mid = X0 + 47 * PXF;
+  // shirts: 60% home main, 15% home secondary, 10% white, 15% visitors (20% on their bench's half, 10% on the home half)
+  const shirt = x => {
+    const awayHalf = (x < mid) === awayLeft, opp = awayHalf ? .2 : .1, r = Math.random();
+    if (r < opp) return away ? away.c1 : '#8c93a8';
+    const k = (r - opp) / (1 - opp);                                  // the rest keeps the 60 : 15 : 10 split
+    return k < 60 / 85 ? t.c1 : k < 75 / 85 ? t.c2 : '#f2f2f4';
+  };
+  for (let y = 2, row = 0; y < Y0 - 14; y += 7, row++) {
+    c.fillStyle = row % 2 ? '#1b2656' : '#19234f'; c.fillRect(0, y + 5, WORLD_W, 2);
+    for (let x = 1 + (row % 2) * 3; x < WORLD_W; x += 6) {
+      if (Math.random() >= fill) { c.fillStyle = '#26316a'; c.fillRect(x, y + 3, 5, 3); c.fillStyle = '#2d3a7a'; c.fillRect(x, y + 3, 5, 1); continue; }   // empty seat
+      const sh = shirt(x); c.fillStyle = sh; c.fillRect(x, y + 3, 5, 3); c.fillStyle = shade(sh, .3); c.fillRect(x, y + 3, 5, 1);   // lit shoulders so dark team colors still read
+      c.fillStyle = pick(SKIN); c.fillRect(x + 1, y, 3, 3);
+      if (Math.random() < .5) { c.fillStyle = pick(HAIR); c.fillRect(x + 1, y, 3, 1); }
+    }
+  }
+  c.fillStyle = t.c1; c.fillRect(0, Y0 - 10, WORLD_W, 7);
+  c.fillStyle = t.c2; for (let x = 6; x < WORLD_W; x += 40) c.fillRect(x, Y0 - 8, 20, 3);
+  c.fillStyle = '#0b1433'; c.fillRect(0, Y0 - 3, WORLD_W, 3);
+  // floor
+  for (let x = 0; x < WORLD_W; x += 3) { c.fillStyle = (x / 3) % 2 ? '#d49a5c' : '#cf9456'; c.fillRect(x, Y0, 3, CH - Y0); }
+  for (let y = Y0 + 4; y < CH; y += 9) for (let x = (y % 2) * 10; x < WORLD_W; x += 22) { c.fillStyle = 'rgba(110,60,20,.16)'; c.fillRect(x, y, 1, 1); }
+  // out of bounds tint
+  c.fillStyle = 'rgba(80,40,10,.18)'; c.fillRect(0, Y0, X0, CH - Y0); c.fillRect(X0 + 94 * PXF, Y0, WORLD_W, CH - Y0); c.fillRect(0, sy(50) + 1, WORLD_W, CH);
+  const L = (x1, y1, x2, y2) => { const n = Math.max(Math.abs(sx(x2) - sx(x1)), Math.abs(sy(y2) - sy(y1))) * 1.5 + 1; for (let i = 0; i <= n; i++) { const k = i / n; c.fillRect(Math.round(sx(lerp(x1, x2, k)) + cam), Math.round(sy(lerp(y1, y2, k))), 1, 1); } };
+  const ellipse = (cx, cy, r, a0, a1) => { for (let a = a0; a <= a1; a += .01) c.fillRect(Math.round(sx(cx + Math.cos(a) * r) + cam), Math.round(sy(cy + Math.sin(a) * r)), 1, 1); };
+  // paint
+  c.fillStyle = t.c1; c.globalAlpha = .55;
+  c.fillRect(Math.round(X0), Math.round(sy(17)), Math.round(19 * PXF), Math.round(16 * PYF));
+  c.fillRect(Math.round(X0 + 75 * PXF), Math.round(sy(17)), Math.round(19 * PXF), Math.round(16 * PYF));
+  c.globalAlpha = 1;
+  c.fillStyle = '#ffffff';
+  L(0, 0, 94, 0); L(0, 50, 94, 50); L(0, 0, 0, 50); L(94, 0, 94, 50); L(47, 0, 47, 50);
+  ellipse(47, 25, 6, 0, Math.PI * 2);
+  for (const side of [0, 1]) {
+    const bx = side ? 94 : 0, dir = side ? -1 : 1, rim = side ? RIM_R : RIM_L;
+    L(bx, 17, bx + dir * 19, 17); L(bx, 33, bx + dir * 19, 33); L(bx + dir * 19, 17, bx + dir * 19, 33);
+    ellipse(bx + dir * 19, 25, 6, 0, Math.PI * 2);
+    L(bx, 3, bx + dir * 14, 3); L(bx, 47, bx + dir * 14, 47);
+    const a = Math.asin(22 / 23.75);                              // where the arc meets the corner lines
+    for (let t2 = -a; t2 <= a; t2 += .005) {
+      const x = rim.x + dir * Math.cos(t2) * 23.75, y = rim.y + Math.sin(t2) * 23.75;
+      c.fillRect(Math.round(sx(x) + cam), Math.round(sy(y)), 1, 1);
+    }
+  }
+  // center court: the home team's colors and name
+  const ccx = sx(47) + cam, ccy = sy(25);
+  const CC_R = 12;                                                          // center circle radius in feet (doubled from 6)
+  c.fillStyle = t.c1;                                                       // fill every pixel inside the oval, so no gaps
+  const cx0 = sx(47) + cam, cy0 = sy(25);
+  for (let py = Math.floor(cy0 - CC_R * PYF) - 1; py <= cy0 + CC_R * PYF + 1; py++)
+    for (let qx = Math.floor(cx0 - CC_R * PXF) - 1; qx <= cx0 + CC_R * PXF + 1; qx++) {
+      const fx = (qx + .5 - cx0) / PXF, fy = (py + .5 - cy0) / PYF;
+      if (fx * fx + fy * fy <= CC_R * CC_R) c.fillRect(qx, py, 1, 1);
+    }
+  c.fillStyle = '#ffffff'; for (let a = 0; a < Math.PI * 2; a += .004) c.fillRect(Math.round(sx(47 + Math.cos(a) * CC_R) + cam), Math.round(sy(25 + Math.sin(a) * CC_R)), 1, 1);
+  const word = t.name.toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 14);
+  const k = word.length * 12 - 3 <= 96 ? 3 : word.length * 8 - 2 <= 104 ? 2 : 1;   // as big as the name fits in the circle
+  const w = (word.length * 4 - 1) * k, x0 = Math.round(ccx - w / 2), y0 = Math.round(ccy - 2.5 * k);
+  [...word].forEach((ch, i) => (FONT[ch] || FONT[' ']).forEach((r, y) => [...r].forEach((px, x) => {
+    if (px !== '#') return;
+    const X = x0 + (i * 4 + x) * k, Y = y0 + y * k;
+    c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(X + 1, Y + 1, k, k);
+    c.fillStyle = '#ffffff'; c.fillRect(X, Y, k, k);
+  })));
+}
+
+function drawHoop(side, flash){
+  const rim = side ? RIM_R : RIM_L, dir = side ? 1 : -1;              // dir points away from the court
+  const rx = Math.round(sx(rim.x)), ry = Math.round(sy(rim.y, RIM_Z));
+  const f = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  const bx = rx + dir * 11;                                           // backboard sits behind the rim
+  const px = Math.round(sx(side ? 97.5 : -3.5)), floor = Math.round(sy(25));
+  // padded stanchion and arm
+  f(px - 4, floor - 5, 9, 5, '#232a45'); f(px - 2, ry - 12, 5, floor - ry + 7, '#3c4466'); f(px - 2, ry - 12, 2, floor - ry + 7, '#59628c');
+  f(Math.min(px, bx), ry - 11, Math.abs(px - bx) + 1, 3, '#3c4466');
+  // backboard panel: glass with a white frame and the orange shooter's square
+  f(bx - 4, ry - 17, 9, 24, '#ffffff'); f(bx - 3, ry - 16, 7, 22, '#cfe6f5'); f(bx - 3, ry - 16, 2, 22, '#e8f4fb');
+  f(bx - 2, ry - 8, 5, 1, '#ee7a2e'); f(bx - 2, ry - 8, 1, 7, '#ee7a2e'); f(bx + 2, ry - 8, 1, 7, '#ee7a2e');
+  // bracket from the board to the rim
+  f(Math.min(bx, rx + dir * 7), ry, Math.abs(bx - (rx + dir * 7)), 2, '#8c93a8');
+  // net
+  const net = flash ? '#fff4a8' : '#f4f4f4';
+  ['#.#.#.#.#.#.#', '.#.#.#.#.#.#.', '..#.#.#.#.#..', '..#.#.#.#.#..', '...#.#.#.#...', '...#.#.#.#...', '....#.#.#....', '....#####....']
+    .forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') f(rx - 6 + x, ry + 2 + y, 1, 1, net); }));
+  // rim: an orange ring seen slightly from above
+  f(rx - 5, ry - 1, 11, 1, '#ff9a4d'); f(rx - 7, ry, 2, 2, '#ee7a2e'); f(rx + 6, ry, 2, 2, '#ee7a2e'); f(rx - 5, ry + 1, 11, 2, '#ee7a2e'); f(rx - 5, ry + 2, 11, 1, '#c7581c');
+}
+
+/* Retro Bowl-style sprites: flat colors, chunky shoulders and arms, no outlines.
+   Letters: H hair, S skin, s skin shade, E eye, T trim, J jersey, j jersey shade, P shorts, p shorts shade, W socks, K shoes. */
+const BODY = [
+  '.....HHHH.....',
+  '....HHHHHH....',
+  '....HSSSSS....',
+  '....SSSSES....',
+  '....SSSSSS....',
+  '.....sSSS.....',
+  '.....TSST.....',
+  '..TJJJJJJJJT..',
+  '.SSJJJJJJJJSS.',
+  '.SSJJJJJJJJSS.',
+  '.SsJJJJJJJJsS.',
+  '.SsjJJJJJJjsS.',
+  '.SsjJJJJJJjsS.',
+  '.SS.JJJJJJ.SS.',
+  '...PPPPPPPP...',
+  '...PPPPPPPP...',
+  '...PRPPPPRP...',
+  '...PRP..PRP...',
+];
+const SHOOT_TOP = [
+  '.....S..S.....',
+  '.....S..S.....',
+  '....SHHHHS....',
+  '....HHHHHH....',
+  '....HSSSSS....',
+  '....SSSSES....',
+  '....SSSSSS....',
+  '.....sSSS.....',
+  '.....TSST.....',
+  '...TJJJJJJT...',
+  '...JJJJJJJJ...',
+  '...JJJJJJJJ...',
+  '...jJJJJJJj...',
+  '...jJJJJJJj...',
+  '...jJJJJJJj...',
+];
+const NUM_ROW = { stand:8, shoot:10 };                                 // first jersey row that carries the number
+const DIGITS = {
+  0:['.##.','#..#','#..#','#..#','#..#','.##.'], 1:['.#..','##..','.#..','.#..','.#..','###.'], 2:['.##.','#..#','..#.','.#..','#...','####'],
+  3:['###.','...#','.##.','...#','...#','###.'], 4:['#..#','#..#','####','...#','...#','...#'], 5:['####','#...','###.','...#','...#','###.'],
+  6:['.##.','#...','###.','#..#','#..#','.##.'], 7:['####','...#','..#.','.#..','.#..','.#..'], 8:['.##.','#..#','.##.','#..#','#..#','.##.'],
+  9:['.##.','#..#','#..#','.###','...#','.##.'],
+};
+const LEGS = {
+  stand:['....SS..SS....','....SS..SS....','....ss..ss....','....WW..WW....','....WW..WW....','....KKK.KKK...'],
+  run0: ['.....SSSS.....','....SS..SS....','....SS...SS...','...ss....SS...','...WW.....WW..','..KK......KKK.'],
+  run1: ['.....SSSS.....','.....SSSSS....','......SS.SS...','......ss.WW...','......WW.KK...','.....KKK......'],
+  run2: ['.....SSSS.....','....SS..SS....','....SS...SS...','...ss....SS...','...WW.....WW..','..KK......KKK.'],
+  run3: ['.....SSSS.....','.....SSSSS....','......SS.SS...','......ss.WW...','......WW.KK...','.....KKK......'],
+};
+function shade(hex, k){
+  const n = parseInt(hex.slice(1), 16);
+  const f = v => clamp(Math.round(v * (1 + k)), 0, 255);
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+// head rows from `top`: 0-1 crown, 2 brow, 3 eyes (E at x8, facing right), 4 mouth and jaw
+function styleHair(rows, p, top){
+  rows = [...rows];
+  let added = 0;
+  const style = p.style === 'headband' ? 'bald' : p.style, band = p.band || p.style === 'headband', face = p.face || '';
+  const put = (r, xs, ch) => { const a = [...rows[r]]; xs.forEach(x => { if (a[x] !== '.') a[x] = ch; }); rows[r] = a.join(''); };
+  if (style === 'bald') { rows[top] = '.....SSSS.....'; rows[top + 1] = '....SSSSSS....'; rows[top + 2] = '....sSSSSS....'; }
+  if (style === 'buzz') { rows[top] = '.....HHHH.....'; rows[top + 1] = '....sSSSSS....'; rows[top + 2] = '....SSSSSS....'; }
+  if (style === 'fade') { rows[top + 1] = '....sHHHHs....'; rows[top + 2] = '....sSSSSS....'; }
+  if (style === 'afro') { rows[top] = '...HHHHHHHH...'; rows[top + 1] = '...HHHHHHHH...'; rows[top + 2] = '...HHSSSSSH...'; rows.splice(top, 0, '....HHHHHH....'); added = 1; }
+  if (style === 'curly') { rows[top] = '....HHHHHH....'; rows[top + 2] = '....HSSSSH....'; rows.splice(top, 0, '....H.HH.H....'); added = 1; }
+  if (style === 'long') { rows[top + 1] = '...HHHHHHH....'; rows[top + 2] = '...HHHSSSS....'; rows[top + 3] = '...HSSSSES....'; rows[top + 4] = '...HSSSSSS....'; }
+  if (style === 'cornrows') { rows[top] = '.....HsHs.....'; rows[top + 1] = '....HHsHsH....'; rows[top + 2] = '....HSSSSS....'; }
+  if (style === 'hitop') { rows[top + 1] = '....HHHHHH....'; rows[top + 2] = '....sSSSSS....'; rows.splice(top, 0, '....HHHHHH....'); added = 1; }
+  if (band) put(top + 2 + added, [4, 5, 6, 7, 8, 9], 'W');
+  const eye = top + 3 + added, jaw = top + 4 + added;
+  if (face.includes('goggles')) put(eye, [6, 7, 8, 9], 'G');
+  if (face.includes('beard')) put(jaw, [6, 7, 8, 9], 'H');
+  else if (face.includes('goatee') || face.includes('stache')) put(jaw, [8, 9], 'H');
+  return { rows, added };
+}
+const spriteCache = {};
+function sprite(p, U, frame){
+  const key = [p.id, U.J, U.P, U.R, U.T, frame, p.style, p.skin, p.hair, p.band, p.face].join('|');
+  if (spriteCache[key]) return spriteCache[key];
+  const shoot = frame === 'shoot';
+  const h = styleHair(shoot ? [...SHOOT_TOP, ...BODY.slice(14)] : [...BODY], p, shoot ? 2 : 0);
+  const rows = h.rows.concat(LEGS[shoot ? 'stand' : frame] || LEGS.stand);
+  const pal = { H:p.hair, S:p.skin, s:shade(p.skin, -.16), E:'#1d1d27', T:U.T, J:U.J, j:U.j, P:U.P, p:U.p, R:U.R, W:'#f4f4f4', K:'#1d1d27', G:'#bfe3ff' };
+  const c = document.createElement('canvas'); c.width = 14; c.height = rows.length;
+  const g = c.getContext('2d');
+  rows.forEach((r, y) => [...(r || '')].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+  c.numRow = NUM_ROW[shoot ? 'shoot' : 'stand'] + h.added;
+  return spriteCache[key] = c;
+}
+// jersey number, drawn un-mirrored so it reads the same both ways
+/* ---- benches and coaches ---- */
+const SEAT_LEGS = ['...PPPPPPPP...','...PRPPPPRP...','....SS..SS....','....WW..WW....','...KKK..KKK...'];
+function seatedSprite(p, U){
+  const key = ['seat', p.id, U.J, U.P, U.R, U.T, p.style, p.skin, p.hair, p.band, p.face].join('|');
+  if (spriteCache[key]) return spriteCache[key];
+  const h = styleHair(BODY.slice(0, 14), p, 0);
+  const rows = h.rows.concat(SEAT_LEGS);
+  const pal = { H:p.hair, S:p.skin, s:shade(p.skin, -.16), E:'#1d1d27', T:U.T, J:U.J, j:U.j, P:U.P, p:U.p, R:U.R, W:'#f4f4f4', K:'#1d1d27', G:'#bfe3ff' };
+  const c = document.createElement('canvas'); c.width = 14; c.height = rows.length;
+  const g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+  c.numRow = NUM_ROW.stand + h.added;
+  return spriteCache[key] = c;
+}
+// Coach: suit jacket, white shirt, tie in the team color. Older looks (gray or white hair, often bald on top) and sometimes glasses.
+const COACH = [
+  '.....HHHH.....',
+  '....HHHHHH....',
+  '....HSSSSS....',
+  '....SSSSES....',
+  '....SSSSSS....',
+  '.....sSSS.....',
+  '....CWTTWC....',
+  '...CCWTTWCC...',
+  '..CCCWTTWCCC..',
+  '..CCCCTTCCCC..',
+  '..CcCCTTCCcC..',
+  '..CcCCCCCCcC..',
+  '..CcCCCCCCcC..',
+  '..SS.CCCC.SS..',
+  '....DDDDDD....',
+  '....DDDDDD....',
+  '....DD..DD....',
+  '....DD..DD....',
+  '....DD..DD....',
+  '....DD..DD....',
+  '....DD..DD....',
+  '....KKK.KKK...',
+];
+function makeCoach(){
+  const tone = pick(['black', 'tan', 'white', 'white']);
+  return { id:'coach' + uid(), skin:TONES[tone], hair:pick(['#b8b8b8', '#d9d9d9', '#8c8c8c', tone === 'white' ? '#5c3a1e' : '#1b1410']), bald:Math.random() < .4, glasses:Math.random() < .5, suit:pick(['#23283a', '#2e3240', '#1b1f2e', '#4a4f5c', '#3a2f28']) };
+}
+function coachSprite(co, tie){
+  const key = ['coach', co.id, tie].join('|');
+  if (spriteCache[key]) return spriteCache[key];
+  const rows = [...COACH];
+  if (co.bald) { rows[0] = '..............'; rows[1] = '....SSSSSS....'; rows[2] = '....HSSSSH....'; }
+  if (co.glasses) rows[3] = '....GGSGGS....';
+  const pal = { H:co.hair, S:co.skin, s:shade(co.skin, -.16), E:'#1d1d27', G:'#1d1d27', C:co.suit, c:shade(co.suit, -.25), D:shade(co.suit, -.1), W:'#f4f4f4', T:tie, K:'#111111' };
+  const c = document.createElement('canvas'); c.width = 14; c.height = rows.length;
+  const g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+  return spriteCache[key] = c;
+}
+/* ---- HD players ----
+   The same chunky shapes and poses as the letter sprites above, redrawn at twice the pixel density
+   (each letter pixel becomes 2 x 2) with a polish pass: light from the front, shade on the back,
+   real eyes, nose and mouth, hair shine, sock stripes, shoe soles, hems, and in-color edges. */
+// 8-frame run: each leg swings from the hip (thigh up to ±34°) and folds at the knee while it swings
+// forward; the far leg is a shade darker so the two never blur together. y0 = hip line in HD pixels.
+const RUN_FRAMES = 8;
+function runLegs(g, f, y0, skin, U){
+  const seg = (a, b, w, col) => {
+    const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]), 1) * 2;
+    g.fillStyle = col;
+    for (let i = 0; i <= n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, y = a[1] + (b[1] - a[1]) * i / n; g.fillRect(Math.round(x - w / 2), Math.round(y - w / 2), w, w); }
+  };
+  const L1 = 6.5, L2 = 6, ground = y0 + 9.5, accent = U.J === '#ffffff' ? U.T : U.J;
+  const leg = (phi, hipX, far) => {
+    const a = .6 * Math.sin(phi), k = .15 + 1.25 * Math.max(0, Math.cos(phi));          // thigh angle, knee fold (radians)
+    const hip = [hipX, y0 - 2], knee = [hip[0] + L1 * Math.sin(a), hip[1] + L1 * Math.cos(a)];
+    let ankle = [knee[0] + L2 * Math.sin(a - k), knee[1] + L2 * Math.cos(a - k)];
+    if (ankle[1] > ground) ankle = [ankle[0], ground];                                    // feet never sink into the floor
+    const sk = far ? shade(skin, -.2) : skin, sock = far ? '#c9ccd6' : '#f2f2f4';
+    seg(hip, knee, 4, sk); seg(knee, ankle, 3, sk);
+    const s = [lerp(knee[0], ankle[0], .6), lerp(knee[1], ankle[1], .6)];
+    seg(s, ankle, 3, sock);
+    g.fillStyle = far ? shade(accent, -.25) : accent; g.fillRect(Math.round(s[0] - 1.5), Math.round(s[1] - .5), 3, 1);   // thin stripe at the top of the sock
+    const ax = Math.round(ankle[0]), ay = Math.round(ankle[1]);
+    g.fillStyle = far ? '#14141c' : '#1d1d27'; g.fillRect(ax - 2, ay + 1, 6, 2);                         // shoe, toe forward
+    g.fillStyle = far ? '#b8b8c0' : '#e6e6ea'; g.fillRect(ax - 2, ay + 2, 6, 1);                         // sole
+    g.fillStyle = far ? shade(accent, -.25) : accent; g.fillRect(ax + 1, ay + 1, 2, 1);
+  };
+  const phi = f / RUN_FRAMES * Math.PI * 2;
+  leg(phi + Math.PI, 12, true);                                       // far leg first
+  leg(phi, 15, false);
+}
+const hdCache = {};
+function hdSprite(p, U, frame){
+  const key = ['hd', p.id, U.J, U.P, U.R, U.T, frame, p.style, p.skin, p.hair, p.band, p.face].join('|');
+  if (hdCache[key]) return hdCache[key];
+  const shoot = frame === 'shoot';
+  const h = styleHair(shoot ? [...SHOOT_TOP, ...BODY.slice(14)] : [...BODY], p, shoot ? 2 : 0);
+  const rows = h.rows.concat(LEGS[shoot ? 'stand' : frame] || LEGS.stand);
+  const hair = p.hair && p.hair.startsWith('#') ? p.hair : '#1b1410';
+  const pal = { H:hair, S:p.skin, s:shade(p.skin, -.16), E:'#1d1d27', T:U.T, J:U.J, j:U.j, P:U.P, p:U.p, R:U.R, W:'#f4f4f4', K:'#1d1d27', G:'#bfe3ff' };
+  const W = 14, Hh = rows.length;
+  const c = document.createElement('canvas'); c.width = W * 2; c.height = Hh * 2;
+  const g = c.getContext('2d');
+  const at = (x, y) => (rows[y] || '')[x] || '.';
+  const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  const legTop = Hh - 6;                                              // the last 6 rows are legs
+  const run = /^run(\d)$/.exec(frame);
+  if (run) runLegs(g, +run[1], legTop * 2, p.skin, U);                 // drawn first so the shorts cover the hips
+  let eyeSeen = false;
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    if (run && y >= legTop) break;
+    const ch = at(x, y), col = pal[ch]; if (!col) continue;
+    const X = x * 2, Y = y * 2;
+    g.fillStyle = col; g.fillRect(X, Y, 2, 2);
+    const back = at(x - 1, y) === '.', front = at(x + 1, y) === '.', up = at(x, y - 1), down = at(x, y + 1);
+    if (ch === 'E') { px(X, Y, '#f4f4f4'); px(X, Y + 1, '#f4f4f4'); px(X + 1, Y, '#1d1d27'); px(X + 1, Y + 1, '#1d1d27'); eyeSeen = { X, Y }; continue; }
+    if (ch === 'H') {
+      if (up === '.' ) px(X + 1, Y, shade(hair, .45));                                      // shine on top
+      if (back) { px(X, Y, shade(hair, -.25)); px(X, Y + 1, shade(hair, -.25)); }
+    }
+    if (ch === 'S' || ch === 's') {
+      if (back) { px(X, Y, shade(p.skin, -.2)); px(X, Y + 1, shade(p.skin, -.2)); }
+      if (front && y < legTop) { px(X + 1, Y, shade(p.skin, .1)); }
+      if ('HW'.includes(up) && y < 8) px(X + 1, Y, shade(p.skin, .14));                     // forehead light
+    }
+    if (ch === 'J' || ch === 'j') {
+      if (back || !'Jj'.includes(at(x - 1, y))) { px(X, Y, shade(col, -.18)); px(X, Y + 1, shade(col, -.18)); }
+      if (front || !'Jj'.includes(at(x + 1, y))) { px(X + 1, Y, shade(col, .12)); px(X + 1, Y + 1, shade(col, .12)); }
+      if (!'JjT'.includes(down)) { px(X, Y + 1, shade(col, -.22)); px(X + 1, Y + 1, shade(col, -.22)); }   // hem
+    }
+    if (ch === 'P' || ch === 'p') {
+      if (!'PpR'.includes(down)) { px(X, Y + 1, shade(col, -.25)); px(X + 1, Y + 1, shade(col, -.25)); }
+      if (back) { px(X, Y, shade(col, -.18)); px(X, Y + 1, shade(col, -.18)); }
+      if (!'PpR'.includes(up)) { px(X, Y, shade(col, -.3)); px(X + 1, Y, shade(col, -.3)); }             // waistband
+    }
+    if (ch === 'W' && y >= legTop) { if ('Ss'.includes(up)) { px(X, Y, U.J === '#ffffff' ? U.T : U.J); px(X + 1, Y, U.J === '#ffffff' ? U.T : U.J); } }
+    if (ch === 'K') { px(X, Y + 1, '#e6e6ea'); px(X + 1, Y + 1, '#e6e6ea'); if (front) px(X + 1, Y, U.J === '#ffffff' ? U.T : U.J); }
+    if (ch === 'T' && y < legTop) { px(X, Y + 1, shade(col, -.12)); }
+  }
+  // face details around the eye: brow, nose, mouth, ear
+  if (eyeSeen) {
+    const { X, Y } = eyeSeen, face = p.face || '';
+    if (!face.includes('goggles')) { g.fillStyle = face.includes('unibrow') ? hair : shade(hair, .1); g.fillRect(X - (face.includes('unibrow') ? 3 : 0), Y - 1, face.includes('unibrow') ? 5 : 3, 1); }
+    if (at(eyeSeen.X / 2 + 2, eyeSeen.Y / 2) === '.') px(X + 4, Y + 1, p.skin);                  // nose tip past the face
+    px(X + 1, Y + 3, face.includes('beard') || face.includes('stache') ? hair : '#8a3b2e'); px(X + 2, Y + 3, face.includes('beard') || face.includes('stache') ? hair : '#8a3b2e');
+    px(X - 5, Y, shade(p.skin, -.3)); px(X - 5, Y + 1, shade(p.skin, -.3)); px(X - 4, Y + 1, shade(p.skin, -.22));   // ear
+  }
+  // in-color edges: darken every pixel that touches transparency
+  const d = g.getImageData(0, 0, c.width, c.height), a = d.data, out = new Uint8ClampedArray(a);
+  const op = (x, y) => x >= 0 && y >= 0 && x < c.width && y < c.height && a[(y * c.width + x) * 4 + 3] > 0;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const i = (y * c.width + x) * 4; if (!a[i + 3]) continue;
+    if (!op(x - 1, y) || !op(x + 1, y) || !op(x, y - 1) || !op(x, y + 1)) { out[i] = a[i] * .62; out[i + 1] = a[i + 1] * .62; out[i + 2] = a[i + 2] * .68; }
+  }
+  a.set(out); g.putImageData(d, 0, 0);
+  c.numRow = NUM_ROW[shoot ? 'shoot' : 'stand'] + h.added;
+  c.rowsH = Hh;
+  return hdCache[key] = c;
+}
+// draw a player at court size (14 px wide) from his HD sprite; returns the top y
+function drawHD(g, p, U, frame, X, feetY, face){
+  const spr = hdSprite(p, U, frame), h = spr.rowsH, top = feetY - h;
+  if ((face || 1) < 0) { g.save(); g.translate(X, 0); g.scale(-1, 1); g.drawImage(spr, -7, top, 14, h); g.restore(); }
+  else g.drawImage(spr, X - 7, top, 14, h);
+  drawNumber(g, X - 7, top + spr.numRow, p.num, U.T);
+  return top;
+}
+function drawBench(side){
+  const B = M.bench[side], U = M.uni[side], seatY = Math.round(sy(-1.4));
+  const x0 = Math.round(sx(B.x0)) - 5, x1 = Math.round(sx(B.x0 + 3.4 * 3)) + 6;
+  ctx.fillStyle = '#3c4466'; ctx.fillRect(x0, seatY - 8, x1 - x0, 4);                       // bench back
+  ctx.fillStyle = '#59628c'; ctx.fillRect(x0, seatY - 4, x1 - x0, 2);                       // seat
+  ctx.fillStyle = '#232a45'; ctx.fillRect(x0 + 1, seatY - 2, 2, 3); ctx.fillRect(x1 - 3, seatY - 2, 2, 3);
+  B.players.forEach((p, i) => {
+    const X = Math.round(sx(B.x0 + i * 3.4)), spr = seatedSprite(p, U), top = seatY - spr.height + 1;
+    ctx.drawImage(spr, X - 7, top);
+    drawNumber(ctx, X - 7, top + spr.numRow, p.num, U.T);
+  });
+  const co = M.coaches[side], X = Math.round(sx(co.x)), Y = Math.round(sy(-0.6)), spr = coachSprite(co.look, co.tie);
+  ctx.fillStyle = 'rgba(120,64,24,.32)'; ctx.fillRect(X - 5, Y - 1, 11, 2);
+  if (co.face < 0) { ctx.save(); ctx.translate(X, 0); ctx.scale(-1, 1); ctx.drawImage(spr, -7, Y - spr.height); ctx.restore(); }
+  else ctx.drawImage(spr, X - 7, Y - spr.height);
+}
+function drawNumber(g, left, top, num, color){
+  // drawn in half-pixels so a two-digit number fits inside the jersey; centered on the chest (sprite column 7)
+  const ds = String(num).split(''), w = ds.length * 4 + (ds.length - 1);
+  const x0 = Math.round((left + 7 - w / 4) * 2) / 2, y0 = Math.round((top + 1) * 2) / 2;   // half-pixel grid: quarter pixels blur
+  g.fillStyle = color;
+  ds.forEach((d, i) => DIGITS[d].forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') g.fillRect(x0 + (i * 5 + x) / 2, y0 + y / 2, .5, .5); })));
+}
+function drawPlayer(e, U, marker){
+  const X = Math.round(sx(e.x)), Yg = Math.round(sy(e.y)), Y = Math.round(sy(e.y, e.z || 0));
+  const shooting = (e.shootT || 0) > 0 || (M.shooting && !M.shooting.released && e === M.our[M.handler]);
+  const frame = shooting ? 'shoot' : e.moving ? 'run' + (((Math.floor(e.anim) % RUN_FRAMES) + RUN_FRAMES) % RUN_FRAMES) : 'stand';
+  // soft oval shadow, smaller when he's in the air
+  const air = clamp(1 - (e.z || 0) / 6, .5, 1);
+  ctx.fillStyle = 'rgba(96,48,16,.30)'; ctx.fillRect(X - 6 * air, Yg - 1, 12 * air + 1, 2); ctx.fillRect(X - 4 * air, Yg - 2, 8 * air + 1, 1); ctx.fillRect(X - 4 * air, Yg + 1, 8 * air + 1, 1);
+  const top = drawHD(ctx, e.p, U, frame, X, Y, e.face || 1);
+  if (marker) {
+    const my = top - 6;                                               // just above the hair
+    ctx.fillStyle = marker; ctx.fillRect(X - 3, my, 7, 2); ctx.fillRect(X - 2, my + 2, 5, 1); ctx.fillRect(X - 1, my + 3, 3, 1); ctx.fillRect(X, my + 4, 1, 1);
+  }
+}
+const BALL = ['.hOOo.','hOOdOo','OOdOOo','OdOOoo','OOOooo','.oooo.'];
+const BALL_PAL = { h:'#ffb27a', O:'#ee7a2e', o:'#c7581c', d:'#6e2a0c' };
+const ballSpr = (() => { const c = document.createElement('canvas'); c.width = c.height = 6; const g = c.getContext('2d'); BALL.forEach((r, y) => [...r].forEach((ch, x) => { if (BALL_PAL[ch]) { g.fillStyle = BALL_PAL[ch]; g.fillRect(x, y, 1, 1); } })); return c; })();
+function drawBall(x, y, z){
+  const X = Math.round(sx(x)), Y = Math.round(sy(y, z));
+  if (z > .5) { ctx.fillStyle = 'rgba(120,64,24,.32)'; ctx.fillRect(Math.round(sx(x)) - 2, Math.round(sy(y)) - 1, 5, 2); }
+  ctx.drawImage(ballSpr, X - 3, Y - 3);
+}
+
+/* ---- match state ---- */
+let M = null, raf = 0, lastT = 0, paused = false;
+function fit(){
+  const s = Math.min(innerWidth / CW, innerHeight / CH);
+  cv.style.width = Math.floor(CW * s) + 'px'; cv.style.height = Math.floor(CH * s) + 'px';
+}
+addEventListener('resize', () => { if (M) fit(); });
+
+function mkOpp(team, i){
+  const b = teamR(team);
+  const pos = POS[i];
+  const o = { id:'o' + i, pos, spd:clamp(b.spd + TILT[pos].spd * .5 + rnd(-.8, .8), 1, 10), sht:clamp(b.sht + TILT[pos].sht * .5 + rnd(-.8, .8), 1, 10), sta:b.sta, hnd:b.hnd, num:[3, 11, 23, 32, 44][i] + ri(0, 1) * 10 % 56 };
+  return giveLook(o);
+}
+function startMatch(){
+  const ng = nextGameInfo(); if (!ng) return;
+  const t = userTeam();
+  const blank = () => ({ fgm:0, fga:0, tpm:0, tpa:0, poss:0, pass:0, reb:0, to:0 });
+  const ks = kitSel || { us:G.kit || { j:'home', s:'home' }, them:{ j:'away', s:'away' } };
+  M = { ...ng, t, uni:{ us:uniColors(t, ks.us), them:uniColors(ng.opp, ks.them) }, id:uid(), us:0, them:0, box:{}, pbox:{}, st:{ us:blank(), them:blank() }, q:1, clock:900, shot:24, phase:'idle', wait:0, flash:0, script:[],
+    our: POS.map(pos => ({ p:G.roster[pos], x:20, y:25, z:0, tx:20, ty:25, anim:0, moving:false, face:1, fat:0, spot:-1, cover:0, state:'move' })),
+    th: ng.opp.players.map((p, i) => { return { p, x:30, y:25, z:0, tx:30, ty:25, anim:0, moving:false, face:-1, lagT:0, lx:30, ly:25 }; }),
+    ball:{ x:20, y:25, z:3, holder:null, fl:null }, handler:0, shooting:null, startQ:'us' };
+  // the stands fill to this game's attendance: yours from fans and ticket price, theirs from their record
+  const oppGp = ng.opp.w + ng.opp.l, oppFill = clamp(.55 + (oppGp ? ng.opp.w / oppGp : .5) * .4, .4, .98);
+  M.fill = ng.home ? attendance() : oppFill;
+  buildCourt(ng.home ? t : ng.opp, ng.home ? ng.opp : t, M.fill, ng.home);   // their bench is always on the left, ours on the right
+  G.coach ||= makeCoach();
+  const benchGuys = () => Array.from({ length:4 }, () => giveLook({ id:uid(), num:ri(0, 55) }));
+  // our bench sits on our half (we attack the right basket), our coach at its right end, nearest our goal; theirs mirrors on the left
+  M.bench = { us:{ x0:57, players:benchGuys() }, them:{ x0:26.8, players:benchGuys() } };
+  M.coaches = { us:{ look:G.coach, x:71.5, face:-1, tie:t.c1 }, them:{ look:makeCoach(), x:22.5, face:1, tie:ng.opp.c1 } };
+  $('#tmU').style.background = t.c1; $('#aU').textContent = t.abbr; $('#aU').style.color = t.c2;
+  $('#tmO').style.background = ng.opp.c1; $('#aO').textContent = ng.opp.abbr; $('#aO').style.color = ng.opp.c2;
+  $('#ui').hidden = true; $('#game').hidden = false; paused = false;
+  fit(); hud();
+  startOurs(10, 25, true);
+  banner('TIP OFF', `${t.name} ball`, 1000);
+  lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+}
+function hud(){
+  $('#sU').textContent = M.us; $('#sO').textContent = M.them;
+  const c = Math.max(0, M.clock);
+  $('#qq').textContent = M.q > 4 ? 'OT' : ['1ST', '2ND', '3RD', '4TH'][M.q - 1];
+  $('#qc').textContent = `${Math.floor(c / 60)}:${String(Math.floor(c % 60)).padStart(2, '0')}`;
+  const ours = ['back', 'live', 'pass', 'shot'].includes(M.phase) || (M.ball.holder && M.ball.holder.side === 'us');
+  const theirs = ['opp', 'opass', 'oshot'].includes(M.phase) || (M.ball.holder && M.ball.holder.side === 'them');
+  $('#pU').className = 'poss' + (ours ? ' on' : ''); $('#pO').className = 'poss' + (theirs && !ours ? ' on' : '');
+  $('#shc').textContent = ['live', 'back', 'pass', 'shot'].includes(M.phase) ? Math.max(0, Math.ceil(M.shot)) : '';
+}
+function banner(text, small, ms = 1000, bigSub = false){
+  const b = $('#banner'); b.innerHTML = esc(text) + (small ? `<small${bigSub ? ' class="big"' : ''}>${esc(small)}</small>` : ''); b.hidden = false;
+  clearTimeout(banner.t); banner.t = setTimeout(() => b.hidden = true, ms);
+}
+const tip = t => { $('#tip').textContent = t || ''; };
+
+/* ---- possessions ---- */
+function holderEnt(){ const h = M.ball.holder; return h ? (h.side === 'us' ? M.our[h.i] : M.th[h.i]) : null; }
+function give(side, i){ M.ball.holder = { side, i }; M.ball.fl = null; if (side === 'us') M.handler = i; }
+
+function startOurs(fromX, fromY, inbound){
+  if (checkQuarterEnd()) return;
+  M.phase = 'back'; M.shot = 24; M.shooting = null; M.oshot = null; hideMeter(); hideMeter('o');
+  const h = inbound ? 0 : nearestIdx(M.our, { x:fromX, y:fromY });
+  M.our.forEach((e, i) => { if (i === h) { e.x = fromX; e.y = fromY; } e.spot = -1; e.state = 'move'; });
+  give('us', h);
+  const carrier = M.our[h]; carrier.tx = OUR_SPOTS[0].x; carrier.ty = 25 + rnd(-3, 3);
+  // teammates jog to their starting spots
+  const init = [0, 1, 2, 7, 8];
+  let k = 1;
+  M.our.forEach((e, i) => { if (i === h) return; e.spot = init[k++]; e.tx = OUR_SPOTS[e.spot].x; e.ty = OUR_SPOTS[e.spot].y; });
+  tip('');
+}
+function startTheirs(fromX, fromY, inbound){
+  if (checkQuarterEnd()) return;
+  M.phase = 'opp'; M.shooting = null; M.oshot = null; hideMeter(); hideMeter('o');
+  const h = inbound ? 0 : nearestIdx(M.th, { x:fromX, y:fromY });
+  M.th.forEach((e, i) => { if (i === h) { e.x = fromX; e.y = fromY; } });
+  give('them', h);
+  const spots = [0, 1, 2, 7, 8, 3, 4, 5, 6].sort(() => Math.random() - .5).slice(0, 5);
+  M.th.forEach((e, i) => { e.spot = spots[i]; e.tx = THEIR_SPOTS[spots[i]].x; e.ty = THEIR_SPOTS[spots[i]].y; });
+  M.th[h].tx = THEIR_SPOTS[0].x; M.th[h].ty = THEIR_SPOTS[0].y;
+  M.oppPlan = { passes:ri(0, 2), t:0, state:'bring', stealRoll:Math.random() < .07 + (userRatings().spd - teamR(M.opp).hnd) * .01 };
+  tip('');
+}
+function nearestIdx(arr, pt){ let b = 0, bd = 1e9; arr.forEach((e, i) => { const d = dist(e, pt); if (d < bd) { bd = d; b = i; } }); return b; }
+
+function checkQuarterEnd(){
+  if (M.clock > 0) return false;
+  endQuarter(); return true;
+}
+function endQuarter(){
+  const q = M.q, final = q >= 4 && M.us !== M.them;
+  M.phase = final ? 'done' : 'break'; hideMeter(); hideMeter('o');
+  const title = final ? 'FINAL' : q === 1 ? 'END OF 1ST' : q === 2 ? 'HALFTIME' : q === 3 ? 'END OF 3RD' : q === 4 ? 'END OF REGULATION' : 'END OF OT';
+  const span = final ? 'Full game' : q === 1 ? '1st quarter' : q === 2 ? '1st half' : q === 3 ? 'Quarters 1–3' : 'Full game so far';
+  showStats(title, span, final ? 'Finish' : q >= 4 ? 'OT' : 'Q' + (q + 1), () => {
+    if (final) { finishLive(M.id); return; }
+    M.q++; M.clock = M.q > 4 ? 300 : 900;
+    [...M.our, ...M.th].forEach(e => { e.fat0 = Math.max(0, (e.fat || 0) - .05); e.fat = e.fat0; });   // 5% back at each break
+    M.q % 2 === 1 ? startOurs(10, 25, true) : startTheirs(84, 25, true);
+    hud();
+  });
+}
+function showStats(title, span, cta, onGo){
+  const U = M.st.us, T = M.st.them, t = M.t, o = M.opp;
+  const frac = (m, a) => `${m}/${a} <span class="pc">(${a ? Math.round(m / a * 100) : 0}%)</span>`;
+  const time = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+  const rows = [
+    ['Shooting', frac(U.fgm, U.fga), frac(T.fgm, T.fga)],
+    ['3-pointers', frac(U.tpm, U.tpa), frac(T.tpm, T.tpa)],
+    ['Possession', time(U.poss), time(T.poss)],
+    ['Passes', U.pass, T.pass],
+    ['Rebounds', U.reb, T.reb],
+    ['Turnovers', U.to, T.to],
+  ];
+  const el = $('#stats');
+  el.innerHTML = `<div class="st-card">
+    <div class="st-title">${title}</div><div class="st-span">${span}</div>
+    <div class="st-score">
+      <div class="st-team" style="background:${t.c1};color:${t.c2}">${esc(t.abbr)}</div><div class="st-num">${M.us}</div>
+      <div class="st-dash">–</div>
+      <div class="st-num">${M.them}</div><div class="st-team" style="background:${o.c1};color:${o.c2}">${esc(o.abbr)}</div>
+    </div>
+    <table class="st-table">${rows.map(([k, u, v]) => `<tr><td class="u">${u}</td><th>${k}</th><td class="v">${v}</td></tr>`).join('')}</table>
+    <button class="btn go" id="stGo">${cta}</button></div>`;
+  el.hidden = false;
+  $('#stGo').onclick = () => { el.hidden = true; onGo(); };
+}
+function finishLive(id){
+  if (!M || M.id !== id) return;
+  const done = M; M = null;
+  cancelAnimationFrame(raf); hideMeter(); closeSheet();
+  $('#game').hidden = true; $('#ui').hidden = false;
+  const opp = teamById(done.opp.id); if (opp) fakeBox(teamPlayers(opp), done.them);
+  endMatch(done, done.us, done.them, done.box, done.pbox);
+}
+function simRest(){
+  if (!M) return;
+  const U = userRatings(), O = teamR(M.opp);
+  const quartersLeft = (M.q <= 4 ? 4 - M.q : 0) + M.clock / 900;
+  const n = Math.round(7 * quartersLeft);
+  for (let i = 0; i < n; i++) {
+    const pts = simPossession(U, O, .84); simCredit(M.box, M.pbox, pts); M.us += pts;
+    M.them += simPossession(O, U, .86);
+  }
+  while (M.us === M.them) { const pts = simPossession(U, O, .84); simCredit(M.box, M.pbox, pts); M.us += pts; M.them += simPossession(O, U, .86); }
+  finishLive(M.id);
+}
+
+/* ---- movement ---- */
+function moveTo(e, tx, ty, sp, dt){
+  const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
+  if (d < .3) { e.moving = false; return true; }
+  const s = Math.min(d, sp * dt); e.x += dx / d * s; e.y += dy / d * s;
+  if (Math.abs(dx) > .2) e.face = dx > 0 ? 1 : -1;
+  e.moving = true; e.anim += dt * 16;                                // 8 frames, about 2 strides a second
+  return d - s < .3;
+}
+// speed gap kept small: a 10-speed player is only about 35% quicker than a 2-speed one
+const ourSpeed = e => (9 + e.p.spd * .45) * (1 - (e.fat || 0));
+const oppSpeed = e => (9 + e.p.spd * .45) * (1 - (e.fat || 0));
+const BALL_SLOW = .9;                                                 // whoever has the ball moves 10% slower
+// Stamina, both teams: over each quarter a player loses 15% speed at 1/10 stamina down to 5% at 10/10,
+// steadily with the game clock. Each break gives 5% back, so tiredness builds through the game.
+// (Your Conditioning upgrade trims your players' loss by 10% a level.)
+const quarterLoss = (e, ours) => (15 - (clamp(e.p.sta, 1, 10) - 1) * 10 / 9) / 100 * (ours ? 1 - .1 * (G.fac.conditioning - 1) : 1);
+function tireAll(){
+  const len = M.q > 4 ? 300 : 900, done = 1 - clamp(M.clock / len, 0, 1);
+  M.our.forEach(e => e.fat = (e.fat0 || 0) + quarterLoss(e, true) * done);
+  M.th.forEach(e => e.fat = (e.fat0 || 0) + quarterLoss(e, false) * done);
+}
+function tire(){}                                                     // speed now follows the clock (tireAll), not steps taken
+const isOpen = i => { const e = M.our[i], d = M.th[i]; return !(Math.hypot(e.x - d.x, e.y - d.y) < 3.5 && (d.still || 0) > .15); };
+
+function update(dt){
+  if (!M || paused) return;
+  M.flash = Math.max(0, M.flash - dt);
+  for (const e of [...M.our, ...M.th]) if (e.shootT > 0) e.shootT -= dt;
+  tireAll();
+  const running = ['back', 'live', 'opp', 'shot', 'oshot', 'pass', 'opass', 'reb'].includes(M.phase);
+  if (running && M.phase !== 'reb') M.st[['opp', 'opass', 'oshot'].includes(M.phase) ? 'them' : 'us'].poss += dt * G.speed;
+  if (running) { M.clock -= dt * G.speed; if (M.phase === 'back' || M.phase === 'live' || M.phase === 'pass' || M.phase === 'shot') M.shot -= dt * 2; }
+  if (M.phase === 'back') updateBack(dt);
+  else if (M.phase === 'live' || M.phase === 'pass') updateLive(dt);
+  else if (M.phase === 'opp' || M.phase === 'opass') updateOpp(dt);
+  else if (M.phase === 'shot') updateCrash(dt);
+  else if (M.phase === 'oshot') { updateOpp(dt); if (M.oshot) updateOppMeter(); }
+  else if (M.phase === 'reb') updateReb(dt);
+  updateBall(dt);
+  if ((M.phase === 'live' || M.phase === 'back') && M.shot <= 0) { turnover('SHOT CLOCK'); }
+  else if ((M.phase === 'live' || M.phase === 'back') && M.clock <= 0) { M.phase = 'break'; endQuarter(); }
+  if (M && M.shooting && !M.shooting.released) {
+    const t = (performance.now() - M.shooting.t0) / 1000;
+    showMeter(meterFill(t));
+    if (t >= METER_PEAK * 2) release(true);
+  }
+  if (M) hud();
+}
+function guardOurs(dt){
+  // their defenders chase our men with a delay that grows with our speed
+  M.th.forEach((d, i) => {
+    const man = M.our[i];
+    d.lagT -= dt;
+    // slower to react: they only re-read where their man is every half second or so (longer against fast players)
+    if (d.lagT <= 0) { d.lagT = .45 + man.p.spd * .06; d.lx = man.x; d.ly = man.y; }
+    const vx = RIM_R.x - d.lx, vy = RIM_R.y - d.ly, l = Math.hypot(vx, vy) || 1;
+    const gap = i === M.handler ? 2.8 + man.p.spd * .1 : 2.8;
+    moveTo(d, d.lx + vx / l * gap, d.ly + vy / l * gap, oppSpeed(d) * .92, dt);
+    d.still = d.moving ? 0 : (d.still || 0) + dt;
+    d.face = 1 * -1;
+  });
+}
+// our shot is in the air: our two teammates nearest the rim (not the shooter) crash the glass,
+// one each side of the rim; their men trail them a step slower. Everyone else watches.
+function updateCrash(dt){
+  const F = M.ball.fl, shooter = F && F.shooter;
+  if (!M.crash) M.crash = M.our.map((e, i) => ({ i, d:dist(e, RIM_R) })).filter(o => M.our[o.i] !== shooter).sort((a, b) => a.d - b.d).slice(0, 2).map(o => o.i);
+  M.our.forEach((e, i) => {
+    const k = M.crash.indexOf(i);
+    if (k < 0) { e.moving = false; return; }
+    moveTo(e, RIM_R.x - 5, RIM_R.y + (k ? 4.5 : -4.5), ourSpeed(e), dt); tire(e, dt);
+  });
+  M.th.forEach((d, i) => {
+    if (!M.crash.includes(i)) { d.moving = false; return; }
+    const man = M.our[i];
+    moveTo(d, man.x - 1.2, man.y, oppSpeed(d) * .85, dt);
+  });
+}
+function updateBack(dt){
+  const c = M.our[M.handler];
+  M.our.forEach((e, i) => { moveTo(e, e.tx, e.ty, i === M.handler ? ourSpeed(e) * BALL_SLOW : ourSpeed(e), dt); tire(e, dt); });
+  guardOurs(dt);
+  if (c.x >= 47.5) { M.phase = 'live'; tip('Tap a teammate to pass · hold SHOOT to shoot'); c.spot = 0; }
+}
+function updateLive(dt, frozen){
+  M.our.forEach((e, i) => {
+    tire(e, dt);
+    if (i === M.handler) { if (M.shooting || frozen) { e.moving = false; return; } moveTo(e, e.tx, e.ty, ourSpeed(e) * BALL_SLOW, dt); return; }
+    if (frozen) { moveTo(e, e.tx, e.ty, ourSpeed(e) * .6, dt); return; }
+    const arrived = moveTo(e, e.tx, e.ty, ourSpeed(e), dt);
+    if (arrived) {
+      if (!isOpen(i)) e.cover += dt; else e.cover = 0;
+      if (e.cover > .55) {                                   // covered: find another spot
+        const taken = new Set(M.our.map(o => o.spot));
+        const choices = OUR_SPOTS.map((s, k) => k).filter(k => !taken.has(k) && k !== e.spot);
+        e.spot = pick(choices); e.tx = OUR_SPOTS[e.spot].x + rnd(-1.5, 1.5); e.ty = OUR_SPOTS[e.spot].y + rnd(-1.5, 1.5); e.cover = 0;
+      }
+    }
+  });
+  guardOurs(dt);
+}
+function updateOpp(dt){
+  const P = M.oppPlan;
+  M.th.forEach(e => {
+    if (e.shootT > 0 || (M.oshot && M.oshot.h === e)) { e.moving = false; e.still = (e.still || 0) + dt; return; }   // a shooter stays planted
+    moveTo(e, e.tx, e.ty, oppSpeed(e) * (M.ball.holder && M.ball.holder.side === 'them' && M.th[M.ball.holder.i] === e ? BALL_SLOW : 1), dt);
+    e.still = e.moving ? 0 : (e.still || 0) + dt;
+  });
+  // their shot is in the air: our two nearest the rim box out in front of it
+  const F = M.ball.fl;
+  if (F && F.kind === 'shot' && F.side === 'them') {
+    if (!M.crash) M.crash = M.our.map((e, i) => ({ i, d:dist(e, RIM_L) })).sort((a, b) => a.d - b.d).slice(0, 2).map(o => o.i);
+    M.our.forEach((e, i) => { const k = M.crash.indexOf(i); if (k < 0) { e.moving = false; return; } moveTo(e, RIM_L.x + 5, RIM_L.y + (k ? 4.5 : -4.5), ourSpeed(e), dt); tire(e, dt); e.face = -1; });
+    return;
+  }
+  // our guys defend: sit between their man and the left rim
+  M.our.forEach((e, i) => {
+    const man = M.th[i], vx = RIM_L.x - man.x, vy = RIM_L.y - man.y, l = Math.hypot(vx, vy) || 1;
+    moveTo(e, man.x + vx / l * 2.5, man.y + vy / l * 2.5, ourSpeed(e), dt); tire(e, dt); e.face = -1;
+  });
+  if (M.phase === 'opass' || M.phase === 'oshot') return;
+  const h = holderEnt(); if (!h) return;
+  if (P.state === 'bring') {
+    if (P.stealRoll && h.x < 50) { const i = nearestIdx(M.our, h); M.st.them.to++; banner('STEAL!', `${M.our[i].p.ln}`, 900); give('us', i); startOurs(M.our[i].x, M.our[i].y, false); return; }
+    if (dist(h, { x:h.tx, y:h.ty }) < .5) { P.state = 'set'; P.t = .35; }
+  } else if (P.state === 'set') {
+    P.t -= dt;
+    if (P.t <= 0) {
+      if (P.passes > 0) {
+        P.passes--;
+        const hi = M.ball.holder.i, j = pick([0, 1, 2, 3, 4].filter(k => k !== hi)), to = M.th[j];
+        M.phase = 'opass'; M.st.them.pass++;
+        M.ball.fl = { kind:'pass', from:{ x:h.x, y:h.y, z:4 }, to:{ x:to.x, y:to.y, z:4 }, t:0, dur:clamp(dist(h, to) / 40, .15, .6), side:'them', target:j };
+        M.ball.holder = null;
+      } else {
+        // stop and set the feet before shooting: no shots on the run
+        if (h.moving || (h.still || 0) < .3) { h.tx = h.x; h.ty = h.y; return; }
+        oppShoot(h);
+      }
+    }
+  }
+}
+function oppShoot(h){
+  const d = Math.hypot(h.x - RIM_L.x, h.y - RIM_L.y), three = isThree(h, RIM_L);
+  const U = userRatings(), O = teamR(M.opp);
+  const contested = Math.random() < clamp(.35 + (U.spd - O.spd) * .07, .1, .75);
+  M.phase = 'oshot'; h.z = 0; h.shootT = 2;
+  const st = pStars(h.p), lo = st >= 5 ? .9 : st >= 4 ? .85 : st >= 3 ? .8 : st >= 2 ? .75 : .7;
+  M.oshot = { t0:performance.now(), target:rnd(lo, 1), h, d, three, contested };
+}
+// BLOCK: one try per shot, before the release. Odds fall off with distance to the shooter;
+// bigs and quick players get a little extra. A block knocks it loose to us.
+function tryBlock(){
+  const S = M.oshot; if (!S || S.blockTried) return;
+  S.blockTried = true;
+  const i = nearestIdx(M.our, S.h), d = M.our[i], gap = dist(d, S.h);
+  d.shootT = .45;                                                   // he jumps with his arms up
+  const odds = gap > 5 ? 0 : clamp(.45 - gap * .07 + (d.p.spd - 5) * .02 + (d.p.pos === 'C' || d.p.pos === 'PF' ? .08 : 0), .03, .6);
+  if (Math.random() >= odds) { S.contested = true; tip(gap > 5 ? 'Too far away to block' : 'Missed the block'); return; }
+  M.oshot = null; hideMeter('o'); M.phase = 'pause';
+  const b = pbFor(M.pbox, d.p); b.blk = (b.blk || 0) + 1; M.st.them.fga++;
+  const to = { x:clamp(S.h.x + rnd(4, 8), 4, 90), y:clamp(S.h.y + rnd(-5, 5), 3, 47), z:0 };
+  M.ball.holder = null;
+  M.ball.fl = { kind:'loose', from:{ x:S.h.x, y:S.h.y, z:8 }, to, t:0, dur:.6, peak:2, to_us:true };
+  banner('BLOCKED!', `${d.p.fn[0]}. ${d.p.ln}`, 1000);
+}
+function updateOppMeter(){
+  const S = M.oshot, t = (performance.now() - S.t0) / 1000, f = meterFill(t);
+  showMeter(Math.min(f, S.target), 'o');
+  if (f < S.target && t < METER_PEAK) return;
+  const fill = Math.min(f, S.target), perfect = fill >= .95;
+  const chance = perfect && S.d <= 28 ? 1 : shotChance(fill, S.d, S.h.p.sht, S.contested);
+  $('#ometerPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
+  M.oshot = null;
+  launchShot(S.h, RIM_L, Math.random() < chance, 'them', S.three, S.d, false);
+  const id = M.id;
+  setTimeout(() => { if (M && M.id === id) hideMeter('o'); }, 800);
+}
+
+/* ---- ball ---- */
+function launchShot(from, rim, made, side, three, d, air){
+  // misses hit the front or back of the rim; airballs fall short
+  const off = made ? { x:0, y:0 } : { x:(Math.random() < .5 ? -1 : 1) * rnd(.7, 1.1), y:rnd(-.5, .5) };
+  const short = { x:lerp(from.x, rim.x, .8), y:lerp(from.y, rim.y, .8), z:0 };
+  const to = air ? short : { x:rim.x + off.x, y:rim.y + off.y, z:RIM_Z + (made ? .3 : .5) };
+  M.ball.holder = null; from.shootT = .45; M.crash = null;            // pick fresh crashers for this shot
+  const T = M.st[side]; T.fga++; if (three) T.tpa++; if (made) { T.fgm++; if (three) T.tpm++; }
+  if (side === 'us') { const b = pbFor(M.pbox, from.p); b.fga++; if (three) b.tpa++; if (made) { b.fgm++; if (three) b.tpm++; } }
+  M.ball.fl = { kind:'shot', from:{ x:from.x + (side === 'us' ? .6 : -.6), y:from.y, z:(from.z || 0) + 7.6 }, to, t:0, dur:.55 + d * .012, peak:3 + d * .13,
+    made, side, three, air, rim, shooter:from, pts:three ? 3 : 2 };
+}
+// A fumbled pass keeps going the way it was thrown. For a pass of length d it lands 0.25d past the
+// catcher, then rolls and slows (steady friction) until it's d past him: a 40 ft pass lands 10 ft past
+// and stops 40 ft past (80 ft from the passer). If it crosses a line it's out: the other team inbounds.
+// Otherwise it's a loose-ball race and whoever gets to it first has it.
+function fumbleLoose(rec, F, side){
+  const dx = F.to.x - F.from.x, dy = F.to.y - F.from.y, len = Math.hypot(dx, dy) || 1, d = Math.max(len, 4), ux = dx / len, uy = dy / len;
+  const at = t => ({ x:rec.x + ux * d * t, y:rec.y + uy * d * t });
+  const inb = p => p.x >= 0 && p.x <= 94 && p.y >= 0 && p.y <= 50;
+  let outT = null;
+  for (let t = 0; t <= 1.0001; t += .005) if (!inb(at(t))) { outT = t; break; }
+  const land = at(outT !== null && outT < .25 ? outT : .25), stop = at(outT !== null ? outT : 1);
+  M.ball.holder = null;
+  M.reb = { pt:{ ...land }, shotSide:null, landed:false, bt:0, loose:true, fumbler:side, who:rec.p };
+  M.phase = 'reb';
+  M.ball.fl = { kind:'fumble', from:{ x:rec.x, y:rec.y, z:3.5 }, to:{ ...land, z:0 }, t:0, dur:.25 + d * .004, peak:1, roll:{ from:land, to:stop, out:outT !== null }, fumbler:side };
+}
+function updateBall(dt){
+  const B = M.ball, h = holderEnt();
+  if (h && !B.fl) {
+    const dribble = h.moving || M.phase === 'back';
+    B.x = h.x + (h.face || 1) * 1.3; B.y = h.y + .3;
+    B.z = (M.shooting && M.shooting.side === 'us' && h === M.our[M.handler]) || (M.oshot && h === M.oshot.h) ? 7.6 + (h.z || 0) : dribble ? .6 + Math.abs(Math.sin(performance.now() / 120)) * 2.4 : 3.2;
+    return;
+  }
+  const F = B.fl;
+  if (!F) {
+    // a loose ball bounces lower and lower on the floor
+    if (M.phase === 'reb' && M.reb && M.reb.landed) { M.reb.bt += dt; B.x = M.reb.pt.x; B.y = M.reb.pt.y; B.z = Math.abs(Math.sin(M.reb.bt * 9)) * 2.2 * Math.exp(-M.reb.bt * 2.2); }
+    return;
+  }
+  F.t += dt;
+  if (F.kind === 'pass' && F.side === 'us') { const r = M.our[F.target]; F.to.x = r.x; F.to.y = r.y; }   // lead the cutter
+  if (F.kind === 'roll') {                                          // rolling on the floor, slowing at a steady rate
+    const kr = Math.min(1, F.t / F.dur), e = 1 - (1 - kr) * (1 - kr);
+    B.x = lerp(F.from.x, F.to.x, e); B.y = lerp(F.from.y, F.to.y, e); B.z = 0;
+    if (M.reb) M.reb.pt = { x:B.x, y:B.y };
+    if (kr < 1) return;
+    B.fl = null;
+    if (F.out) {                                                    // rolled out: the other team inbounds where it crossed
+      const R = M.reb; M.reb = null; M.phase = 'pause';
+      M.st[F.fumbler].to++; if (F.fumbler === 'us' && R && R.who) pbFor(M.pbox, R.who).to++;
+      banner('OUT OF BOUNDS', F.fumbler === 'us' ? 'Their ball' : 'Your ball', 800);
+      const id = M.id, at = { x:clamp(B.x, 2, 92), y:clamp(B.y, 1, 49) };
+      setTimeout(() => { if (!M || M.id !== id) return; F.fumbler === 'us' ? startTheirs(at.x, at.y, false) : startOurs(at.x, at.y, false); }, 700);
+    }
+    return;                                                         // at rest in bounds: the race in updateReb goes on
+  }
+  const k = Math.min(1, F.t / F.dur);
+  B.x = lerp(F.from.x, F.to.x, k); B.y = lerp(F.from.y, F.to.y, k);
+  B.z = lerp(F.from.z, F.to.z, F.kind === 'drop' ? k * k : k) + Math.sin(Math.PI * k) * (F.peak || (F.kind === 'pass' ? 1.2 : 0));
+  if (k < 1) return;
+  B.fl = null;
+  if (F.kind === 'pass') {
+    if (F.side === 'them') {
+      // their catches can slip too: same odds as ours, by the catcher's handling and whether one of ours is on him
+      const rec = M.th[F.target], guarded = M.our.some(o => Math.hypot(o.x - rec.x, o.y - rec.y) < 3.5);
+      if (Math.random() < fumbleChance(rec.p.hnd, !guarded)) { fumbleLoose(rec, F, 'them'); banner('THEY FUMBLE!', 'Loose ball!', 900); return; }
+      give('them', F.target); M.phase = 'opp'; M.oppPlan.state = 'set'; M.oppPlan.t = .3; return;
+    }
+    const rec = M.our[F.target];
+    if (Math.random() < fumbleChance(rec.p.hnd, F.open)) {           // it squirts off his hands and keeps going
+      hideMeter(); M.shooting = null;
+      fumbleLoose(rec, F, 'us'); banner('FUMBLE', 'Loose ball!', 900);
+      return;
+    }
+    give('us', F.target); rec.spot = -1;
+    if (rec.x < 47.5) { rec.tx = OUR_SPOTS[0].x; rec.ty = 25; M.phase = 'back'; }          // still in the backcourt: bring it up
+    else M.phase = 'live';                                          // he keeps going where he was cutting
+    return;
+  }
+  if (F.kind === 'fumble') {                                      // it hit the floor: now it rolls on
+    if (M.reb) { M.reb.landed = true; M.reb.bt = 10; }              // bt 10: no extra bounce once it comes to rest
+    B.fl = { kind:'roll', from:F.roll.from, to:F.roll.to, t:0, dur:.4 + dist(F.roll.from, F.roll.to) * .05, out:F.roll.out, fumbler:F.fumbler };
+    return;
+  }
+  if (F.kind === 'drop') {                                        // through the net and onto the floor
+    const id = M.id, side = F.side;
+    setTimeout(() => { if (!M || M.id !== id) return; side === 'us' ? startTheirs(91, 25, true) : startOurs(3, 25, true); }, 450);
+    return;
+  }
+  if (F.kind === 'bounce') { M.reb.landed = true; M.reb.bt = 0; return; }
+  if (F.kind === 'loose') {                                        // the other side's ball, inbounded from where it went out
+    const id = M.id, at = { x:F.to.x, y:clamp(F.to.y, 1, 49) }, ours = F.to_us;
+    setTimeout(() => { if (!M || M.id !== id) return; ours ? startOurs(at.x, at.y, false) : startTheirs(at.x, at.y, false); }, 600);
+    return;
+  }
+  // the shot reached the rim
+  if (F.made) {
+    M.flash = .5;
+    if (F.side === 'us') { M.us += F.pts; M.box[F.shooter.p.id] = (M.box[F.shooter.p.id] || 0) + F.pts; banner(F.three ? 'THREE!' : 'BUCKET!', F.perfect ? 'PERFECT RELEASE' : `${F.shooter.p.fn[0]}. ${F.shooter.p.ln}`, 900); }
+    else { M.them += F.pts; banner(`${M.opp.city} scores!`, `${M.us}-${M.them}`, 1100, true); }
+    hud(); M.phase = 'pause';
+    B.fl = { kind:'drop', from:{ x:F.rim.x, y:F.rim.y, z:RIM_Z }, to:{ x:F.rim.x, y:F.rim.y + .3, z:0 }, t:0, dur:.45, side:F.side };
+    return;
+  }
+  startRebound(F);
+}
+function startRebound(F){
+  const B = M.ball, U = userRatings(), O = teamR(M.opp);
+  const back = F.rim === RIM_R ? -1 : 1;                           // off the rim, back toward the court
+  const pt = F.air ? { x:B.x, y:B.y } : { x:clamp(F.rim.x + back * rnd(3, 11), 2, 92), y:clamp(F.rim.y + rnd(-10, 10), 3, 47) };
+  void U; void O;
+  M.reb = { pt, shotSide:F.side, landed:!!F.air, bt:0 };
+  if (!F.air) B.fl = { kind:'bounce', from:{ x:B.x, y:B.y, z:B.z }, to:{ x:pt.x, y:pt.y, z:.4 }, t:0, dur:.5 + dist(B, pt) * .02, peak:3.5 };
+  if (F.side === 'us') banner(F.air ? 'AIRBALL' : 'MISS', '', 800);
+  M.phase = 'reb';
+}
+// Rebounds are a race: everyone nearby runs at the ball at their own speed and the first one there gets it.
+// The shooting team is a step slower to it (the defense has inside position).
+function updateReb(dt){
+  const R = M.reb, pt = R.pt;
+  const all = [...M.our.map((e, i) => ({ e, side:'us', i })), ...M.th.map((e, i) => ({ e, side:'them', i }))];
+  for (const o of all) {
+    if (dist(o.e, pt) > 26) { o.e.moving = false; continue; }
+    const sp = (o.side === 'us' ? ourSpeed(o.e) : oppSpeed(o.e)) * (o.side === R.shotSide ? .88 : 1);
+    moveTo(o.e, pt.x, pt.y, sp, dt);
+    if (o.side === 'us') tire(o.e, dt);
+  }
+  if (!R.landed) return;
+  let best = null, bd = 1.2;
+  for (const o of all) { const d = dist(o.e, pt); if (d < bd) { bd = d; best = o; } }
+  if (!best) return;
+  const winner = best.e, side = best.side, offensive = side === R.shotSide;
+  if (R.loose) {                                                    // a fumble: first to the ball has it
+    M.ball.fl = null; give(side, best.i); M.reb = null;
+    if (side !== R.fumbler) { M.st[R.fumbler].to++; if (R.fumbler === 'us' && R.who) pbFor(M.pbox, R.who).to++; }
+    if (side === 'us') {
+      banner(side === R.fumbler ? 'RECOVERED' : 'STOLEN!', winner.p.ln, 800);
+      if (side === R.fumbler) {                                     // same possession, same shot clock
+        winner.spot = -1; winner.tx = winner.x; winner.ty = winner.y;
+        if (winner.x < 47.5) { winner.tx = OUR_SPOTS[0].x; winner.ty = 25; M.phase = 'back'; } else M.phase = 'live';
+      } else startOurs(winner.x, winner.y, false);
+    } else {
+      if (side === R.fumbler) { M.phase = 'opp'; M.oppPlan = { passes:0, t:.35, state:'set', stealRoll:false }; }
+      else { banner('THEY RECOVER', '', 700); startTheirs(winner.x, winner.y, false); }
+    }
+    return;
+  }
+  give(side, best.i); M.reb = null; M.st[side].reb++; if (side === 'us') pbFor(M.pbox, winner.p).reb++;
+  if (side === 'us') {
+    if (offensive) { M.shot = 14; M.phase = 'live'; winner.spot = -1; winner.tx = winner.x; winner.ty = winner.y; banner('OFFENSIVE REBOUND', winner.p.ln, 800); }
+    else { banner('REBOUND', winner.p.ln, 700); startOurs(winner.x, winner.y, false); }
+  } else {
+    if (offensive) { M.phase = 'opp'; M.oppPlan = { passes:0, t:.35, state:'set', stealRoll:false }; }
+    else startTheirs(winner.x, winner.y, false);
+  }
+}
+function turnover(text, sub){
+  if (!M || M.phase === 'pause') return;
+  hideMeter(); M.shooting = null;
+  banner(text, sub || 'Turnover', 900); M.phase = 'pause'; M.st.us.to++; pbFor(M.pbox, M.our[M.handler].p).to++;
+  const id = M.id;
+  setTimeout(() => { if (!M || M.id !== id) return; startTheirs(70, 25, false); }, 900);
+}
+
+/* ---- shooting ---- */
+function showMeter(f, who = ''){
+  $('#' + who + 'meter').hidden = false;
+  const fill = $('#' + who + 'meterFill');
+  fill.style.height = (f * 100) + '%';
+  fill.style.background = `rgb(${Math.round(lerp(255, 68, f))},${Math.round(lerp(255, 196, f))},${Math.round(lerp(255, 93, f))})`;
+}
+function hideMeter(who = ''){ $('#' + who + 'meter').hidden = true; $('#' + who + 'meterPct').textContent = ''; }
+function beginShot(){
+  const e = M.our[M.handler];
+  const d = Math.hypot(e.x - RIM_R.x, e.y - RIM_R.y);
+  const dfd = M.th[M.handler];
+  const contested = Math.hypot(e.x - dfd.x, e.y - dfd.y) < 3.5 && (dfd.still || 0) > .15;
+  if (d < 6.5) {                                                           // layup: automatic
+    const chance = shotChance(.92, Math.max(d, 3), e.p.sht, contested);
+    const made = Math.random() < chance;
+    M.phase = 'shot'; e.z = 2;
+    launchShot(e, RIM_R, made, 'us', false, d, false);
+    setTimeout(() => { if (M) e.z = 0; }, 300);
+    return;
+  }
+  M.shooting = { t0:performance.now(), side:'us', contested, d, released:false };
+  M.phase = 'shot'; e.z = 1.2;
+  showMeter(0);
+}
+function release(auto){
+  const S = M.shooting; if (!S || S.released) return;
+  S.released = true;
+  const t = (performance.now() - S.t0) / 1000;
+  const e = M.our[M.handler];
+  const fill = auto ? 0 : meterFill(t);
+  const perfect = !auto && meterFill(t) >= .95;
+  const three = isThree(e, RIM_R);
+  let chance = perfect ? (S.d <= 28 ? 1 : shotChance(1, S.d, e.p.sht, S.contested)) : shotChance(fill, S.d, e.p.sht, S.contested);
+  if (auto) chance = 0;
+  const made = Math.random() < chance;
+  e.p.fga = (e.p.fga || 0) + 1;
+  launchShot(e, RIM_R, made, 'us', three, S.d, auto);
+  M.ball.fl.perfect = perfect;
+  $('#meterPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
+  const id = M.id;
+  setTimeout(() => { if (M && M.id === id) { hideMeter(); M.shooting = null; e.z = 0; } }, 700);
+}
+
+/* ---- input ---- */
+function canvasPt(ev){ const r = cv.getBoundingClientRect(); return { x:(ev.clientX - r.left) / r.width * CW, y:(ev.clientY - r.top) / r.height * CH }; }
+cv.addEventListener('pointerdown', ev => {
+  if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting) return;
+  ev.preventDefault();
+  try { cv.setPointerCapture(ev.pointerId); } catch {}
+  const pt = canvasPt(ev);
+  let best = -1, bd = 15;
+  M.our.forEach((e, i) => { if (i === M.handler) return; const d = Math.hypot(sx(e.x) - pt.x, sy(e.y) - 12 - pt.y); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0) {
+    const from = M.our[M.handler], to = M.our[best];
+    M.phase = 'pass'; M.st.us.pass++; pbFor(M.pbox, from.p).pass++;
+    M.ball.fl = { kind:'pass', from:{ x:from.x, y:from.y, z:4.5 }, to:{ x:to.x, y:to.y, z:4.5 }, t:0, dur:clamp(dist(from, to) / 42, .15, .6), side:'us', target:best, open:from.x < 47.5 || isOpen(best) };
+    M.ball.holder = null;
+    if (M.phase === 'pass' && from.x < 47.5) {                       // passing in the backcourt: the passer runs to an open spot
+      const taken = new Set(M.our.map(o => o.spot)), free = OUR_SPOTS.map((_, k) => k).filter(k => k && !taken.has(k));
+      from.spot = pick(free); from.tx = OUR_SPOTS[from.spot].x; from.ty = OUR_SPOTS[from.spot].y; from.cover = 0;
+    } else { from.spot = -1; from.cover = 1; }                       // passer goes looking for a new spot
+    return;                                                         // the receiver keeps running; the pass homes in on him
+  }
+});
+const up = () => { if (M && M.shooting && !M.shooting.released) release(false); };
+const sb = $('#shootBtn');
+sb.addEventListener('pointerdown', ev => {
+  ev.preventDefault();
+  if (M && !paused && M.phase === 'oshot') { tryBlock(); return; }
+  if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting) return;
+  try { sb.setPointerCapture(ev.pointerId); } catch {} beginShot();
+});
+sb.addEventListener('pointerup', up);
+sb.addEventListener('pointercancel', up);
+sb.addEventListener('contextmenu', ev => ev.preventDefault());
+$('#pauseBtn').addEventListener('click', () => { if (!M) return; paused = true; speedSheet(true); });
+
+/* ---- draw ---- */
+function draw(){
+  if (!M) return;
+  ctx.setTransform(2, 0, 0, 2, 0, 0); ctx.imageSmoothingEnabled = false;
+  const B = M.ball;
+  const target = clamp(X0 + B.x * PXF - CW / 2, 0, WORLD_W - CW);
+  cam = lerp(cam, target, .12);
+  ctx.drawImage(courtCv, Math.round(cam), 0, CW, CH, 0, 0, CW, CH);
+  cam = Math.round(cam * 100) / 100;
+  const t = M.t;
+  const openMark = M.phase === 'live' || M.phase === 'back';        // full-court offense: open markers from the moment we have it
+  const ents = [
+    ...M.our.map((e, i) => ({ y:e.y, f:() => drawPlayer(e, M.uni.us, i === M.handler && (M.phase === 'live' || M.phase === 'back') ? '#ffd23f' : openMark && i !== M.handler && isOpen(i) ? '#44ff6a' : null) })),
+    ...M.th.map(e => ({ y:e.y, f:() => drawPlayer(e, M.uni.them, null) })),
+    { y:25.01, f:() => { drawHoop(0, M.flash > 0 && B.x < 47); drawHoop(1, M.flash > 0 && B.x > 47); } },
+    { y:-2, f:() => { drawBench('us'); drawBench('them'); } },
+  ].sort((a, b) => a.y - b.y);
+  ents.forEach(x => x.f());
+  drawBall(B.x, B.y, B.z);
+}
+function loop(now){
+  const dt = clamp((now - lastT) / 1000, 0, .05); lastT = now;
+  update(dt); draw();
+  if (M) raf = requestAnimationFrame(loop);
+}
+
+/* ============================ boot ============================ */
+try { const raw = localStorage.getItem(CACHE); if (raw) G = migrate(JSON.parse(raw)); } catch {}
+render();
+(async () => {
+  const use = window.claude?.use; if (!use) return;
+  DB = await use('db').catch(() => null); if (!DB) return;
+  try {
+    const snap = await DB.doc('saves/main').get();
+    if (snap.exists) { const r = JSON.parse(snap.data().json); if (r && r.v && r.v < 2) { DB.doc('saves/legacy').set(snap.data()).catch(() => {}); } if (r && r.v >= 2) { G = migrate(r); try { localStorage.setItem(CACHE, snap.data().json); } catch {} if (!M) { screen = 'hub'; render(); } } }
+    else if (G) save();
+  } catch (e) { console.warn(e); }
+})();
+})();
+</script>
