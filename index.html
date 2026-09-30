@@ -445,11 +445,18 @@ const RATE_NAME = { spd:'Speed', sta:'Stamina', sht:'Shooting', hnd:'Handling' }
 const RATE_DESC = { spd:'Gets open faster and stays open longer.', sta:'Keeps his speed late in each quarter.', sht:'Makes more shots, especially from deep.', hnd:'Fumbles fewer passes.' };
 const TILT = { PG:{ spd:1, sta:-1, sht:0, hnd:2 }, SG:{ spd:1, sta:-1, sht:2, hnd:0 }, SF:{ spd:.5, sta:0, sht:.5, hnd:0 }, PF:{ spd:-.5, sta:1.5, sht:-.5, hnd:-.5 }, C:{ spd:-1, sta:2, sht:-1, hnd:-1.5 } };
 const SEASON_GAMES = 14;
-// TV money per game (user's deal): $10K for every 1% of fans, plus star power for each player on the roster:
-// 1-1.5 stars $10K, 2-2.5 $25K, 3-3.5 $50K, 4-4.5 $100K, 5 stars $250K. Amounts in millions.
-const TV_PER_FAN = .01, TV_STAR = [0, .01, .025, .05, .1, .25];
+// TV money per game (amounts in millions). Star power for each player on the roster: 1-1.5 stars $10K, 2-2.5 $25K,
+// 3-3.5 $50K, 4-4.5 $100K, 5 stars $250K.
+//   HOME: local TV $30K per 1% of fans + star power         (fans watch their team at home)
+//   AWAY: national TV $3K per 1% of fans + star power x 1.5 (national TV picks up star teams on the road)
+// So lots of fans pays mostly at home; star power pays everywhere and a little extra on the road.
+const TV_HOME_PER_FAN = .03, TV_AWAY_PER_FAN = .003, TV_AWAY_STARS = 1.5, TV_STAR = [0, .01, .025, .05, .1, .25];
 const tvStarsFor = p => TV_STAR[Math.floor(pStars(p))] || 0;
-const tvDeal = () => { const fans = Math.round(G.fans) * TV_PER_FAN, stars = rosterArr().reduce((s, p) => s + tvStarsFor(p), 0); return { fans, stars, total:fans + stars }; };
+const tvDeal = home => {
+  const f = Math.round(G.fans), star = rosterArr().reduce((s, p) => s + tvStarsFor(p), 0);
+  const fans = f * (home ? TV_HOME_PER_FAN : TV_AWAY_PER_FAN), stars = star * (home ? 1 : TV_AWAY_STARS);
+  return { fans, stars, total:fans + stars };
+};
 const FAC = {
   training:{ name:'Training Center', desc:lv => `Young players grow ${Math.round(75 + lv * 25)}% as fast each offseason.` },
   conditioning:{ name:'Conditioning', desc:lv => `Players tire ${lv * 10 - 10}% slower during games.` },
@@ -504,9 +511,14 @@ function makePlayer(pos, target, age = ri(20, 32)){
 // re-signing your own player costs at least 20% more than his old deal, or his market price if that's higher
 function resignPrice(p){ return Math.max(askSalary(p), Math.round(p.sal * 1.2 * 20) / 20); }
 // priced by stars: about $1M at 1 star, $3.5M at 2, $7.5M at 3, $13M at 4, $21M at 5 (20% less at 32+)
-function askSalary(p){ const a = 1.5 + 1.4 * clamp(starsSmooth(p), 0, 5); return Math.max(1, Math.round(Math.pow(a / 10, 2.6) * 32 * 2) / 2 * (p.age >= 32 ? .8 : 1)); }
+// each player has his own price: 85-115% of the star rate, rolled once and kept (p.askMul)
+function askSalary(p){ const a = 1.5 + 1.4 * clamp(starsSmooth(p), 0, 5); p.askMul ??= .85 + Math.random() * .3; return Math.max(1, Math.round(Math.pow(a / 10, 2.6) * 32 * p.askMul * 2) / 2 * (p.age >= 32 ? .8 : 1)); }
 const potStars = p => starsFromTotal(Math.round(p.pot * 4));
-const askYears = p => p.age < 25 ? 3 : p.age < 30 ? 2 : 1;
+// contract length by age, rolled once per player: 24 and under 3-4 years, 25-29 2-3, 30 and up 2
+const askYears = p => {
+  if (p.askYrs == null || p.askYrsAge !== p.age) { p.askYrs = p.age <= 24 ? 3 + (Math.random() < .5 ? 1 : 0) : p.age <= 29 ? 2 + (Math.random() < .5 ? 1 : 0) : 2; p.askYrsAge = p.age; }
+  return p.askYrs;
+};
 const posColor = pos => `pc-${pos}`;
 
 /* ============================ shot math ============================ */
@@ -781,7 +793,7 @@ const ROUND_NAME = ['Conference semifinal', 'Conference final', 'The Finals'];
 // Home games: fans fill the arena; every $100 over a $150 ticket keeps about 14% of seats empty.
 // Each fan in the building also buys $18 of food, and every 2.5 fans park one car at $40.
 const TICKET_MIN = 100, TICKET_MAX = 800, TICKET_FAIR = 150, FOOD_PER_FAN = 18, FANS_PER_CAR = 2.5, PARKING = 40;
-const attendance = () => clamp(.3 + G.fans / 100 * .7 - (G.ticket - TICKET_FAIR) / 700, .05, 1);
+const attendance = () => clamp(G.fans / 100 - (G.ticket - TICKET_FAIR) / 700, .05, 1);   // 50% fans = 50% full at a fair price
 function homeGate(){
   const att = attendance(), crowd = Math.round(seats(G.fac.arena) * att);
   const tickets = crowd * G.ticket / 1e6, food = crowd * FOOD_PER_FAN / 1e6, parking = Math.round(crowd / FANS_PER_CAR) * PARKING / 1e6;
@@ -810,7 +822,7 @@ function applyResult(M, us, them, box, pbox = {}){
   if (M.kind === 'regular') M.home ? record(t, M.opp, us, them) : record(M.opp, t, them, us);
   const H = M.home ? homeGate() : { att:0, crowd:0, tickets:0, food:0, parking:0, total:0 };   // before fans change
   const att = H.att, gate = H.tickets;
-  const tv = tvDeal();                                              // fans going into the game + star power on the roster
+  const tv = tvDeal(M.home);                                        // fans going into the game + star power on the roster
   G.cash += H.total + tv.total; G.fin.gate += gate; G.fin.tv += tv.total;
   G.fin.food = (G.fin.food || 0) + H.food; G.fin.parking = (G.fin.parking || 0) + H.parking;
   const cr = gameCredits();                                         // by fans going into the game
@@ -1243,7 +1255,7 @@ function postMoney(L){
     ${L.gate ? `${line(`Tickets <span class="muted num">(${(L.crowd || 0).toLocaleString()} fans · ${Math.round(L.att * 100)}% full)</span>`, '+' + money(L.gate), 'good')}
       ${line('Food', '+' + money(food), 'good')}${line('Parking', '+' + money(parking), 'good')}` : line('Tickets, food, parking <span class="muted">(away game)</span>', '$0', 'muted')}
     ${L.tvFans != null
-      ? `${line(`TV · fans <span class="muted num">(${L.tvFanPct}%)</span>`, '+' + money(L.tvFans), 'good')}${line('TV · star power', '+' + money(L.tvStars), 'good')}`
+      ? `${line(`${L.home ? 'Local' : 'National'} TV <span class="muted num">(${L.tvFanPct}% fans)</span>`, '+' + money(L.tvFans), 'good')}${line(`Star power${L.home ? '' : ' <span class="muted">(road ×1.5)</span>'}`, '+' + money(L.tvStars), 'good')}`
       : line('TV money', '+' + money(L.tv), 'good')}
     <div class="label" style="margin:8px 0 4px">Costs</div>
     ${L.pay.map(x => line(`<span class="muted">${x.pos}</span> ${esc(x.name)}`, '-' + money(x.amt), 'bad')).join('')}
