@@ -444,7 +444,12 @@ const RATE = ['spd','sta','sht','hnd'];
 const RATE_NAME = { spd:'Speed', sta:'Stamina', sht:'Shooting', hnd:'Handling' };
 const RATE_DESC = { spd:'Gets open faster and stays open longer.', sta:'Keeps his speed late in each quarter.', sht:'Makes more shots, especially from deep.', hnd:'Fumbles fewer passes.' };
 const TILT = { PG:{ spd:1, sta:-1, sht:0, hnd:2 }, SG:{ spd:1, sta:-1, sht:2, hnd:0 }, SF:{ spd:.5, sta:0, sht:.5, hnd:0 }, PF:{ spd:-.5, sta:1.5, sht:-.5, hnd:-.5 }, C:{ spd:-1, sta:2, sht:-1, hnd:-1.5 } };
-const SEASON_GAMES = 14, TV = .4;
+const SEASON_GAMES = 14;
+// TV money per game (user's deal): $10K for every 1% of fans, plus star power for each player on the roster:
+// 1-1.5 stars $10K, 2-2.5 $25K, 3-3.5 $50K, 4-4.5 $100K, 5 stars $250K. Amounts in millions.
+const TV_PER_FAN = .01, TV_STAR = [0, .01, .025, .05, .1, .25];
+const tvStarsFor = p => TV_STAR[Math.floor(pStars(p))] || 0;
+const tvDeal = () => { const fans = Math.round(G.fans) * TV_PER_FAN, stars = rosterArr().reduce((s, p) => s + tvStarsFor(p), 0); return { fans, stars, total:fans + stars }; };
 const FAC = {
   training:{ name:'Training Center', desc:lv => `Young players grow ${Math.round(75 + lv * 25)}% as fast each offseason.` },
   conditioning:{ name:'Conditioning', desc:lv => `Players tire ${lv * 10 - 10}% slower during games.` },
@@ -805,7 +810,8 @@ function applyResult(M, us, them, box, pbox = {}){
   if (M.kind === 'regular') M.home ? record(t, M.opp, us, them) : record(M.opp, t, them, us);
   const H = M.home ? homeGate() : { att:0, crowd:0, tickets:0, food:0, parking:0, total:0 };   // before fans change
   const att = H.att, gate = H.tickets;
-  G.cash += H.total + TV; G.fin.gate += gate; G.fin.tv += TV;
+  const tv = tvDeal();                                              // fans going into the game + star power on the roster
+  G.cash += H.total + tv.total; G.fin.gate += gate; G.fin.tv += tv.total;
   G.fin.food = (G.fin.food || 0) + H.food; G.fin.parking = (G.fin.parking || 0) + H.parking;
   const cr = gameCredits();                                         // by fans going into the game
   G.credits += cr;
@@ -822,7 +828,7 @@ function applyResult(M, us, them, box, pbox = {}){
   for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
   addStats(rosterArr(), box, pbox);                                 // this season, and career
   const top = Object.entries(box).map(([id, pts]) => [rosterArr().find(p => p.id === id), pts]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:TV, cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
+  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:tv.total, tvFans:tv.fans, tvStars:tv.stars, tvFanPct:Math.round(fansBefore), cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
 }
 function userPlaysThisWeek(){ return G.schedule[G.week]?.some(g => g.h === 'U' || g.a === 'U'); }
 function skipByes(){ while (G.phase === 'regular' && G.week < G.schedule.length && !userPlaysThisWeek()) finishWeek(); }
@@ -1236,7 +1242,9 @@ function postMoney(L){
     <div class="label" style="margin-bottom:4px">Earnings</div>
     ${L.gate ? `${line(`Tickets <span class="muted num">(${(L.crowd || 0).toLocaleString()} fans · ${Math.round(L.att * 100)}% full)</span>`, '+' + money(L.gate), 'good')}
       ${line('Food', '+' + money(food), 'good')}${line('Parking', '+' + money(parking), 'good')}` : line('Tickets, food, parking <span class="muted">(away game)</span>', '$0', 'muted')}
-    ${line('TV money', '+' + money(L.tv), 'good')}
+    ${L.tvFans != null
+      ? `${line(`TV · fans <span class="muted num">(${L.tvFanPct}%)</span>`, '+' + money(L.tvFans), 'good')}${line('TV · star power', '+' + money(L.tvStars), 'good')}`
+      : line('TV money', '+' + money(L.tv), 'good')}
     <div class="label" style="margin:8px 0 4px">Costs</div>
     ${L.pay.map(x => line(`<span class="muted">${x.pos}</span> ${esc(x.name)}`, '-' + money(x.amt), 'bad')).join('')}
     <div class="row between" style="border-top:2px solid rgba(255,255,255,.2);margin-top:6px;padding-top:4px"><b>Net</b><b class="num ${net >= 0 ? 'good' : 'bad'}">${net >= 0 ? '+' : '-'}${money(Math.abs(net))}</b></div>
