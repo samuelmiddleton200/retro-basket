@@ -1890,6 +1890,12 @@ function drawPlayer(e, U, marker){
   if (marker) {
     const my = top - 6;                                               // just above the hair
     ctx.fillStyle = marker; ctx.fillRect(X - 3, my, 7, 2); ctx.fillRect(X - 2, my + 2, 5, 1); ctx.fillRect(X - 1, my + 3, 3, 1); ctx.fillRect(X, my + 4, 1, 1);
+    // our ball handler behind the 3-point line: a small "3" beside his arrow, so it's clear before the shot
+    if (U === M.uni.us && e === M.our[M.handler] && isThree(e, RIM_R)) {
+      const gx = X + 5, gy = my - 1;
+      ctx.fillStyle = '#1a1426'; ctx.fillRect(gx - 1, gy - 1, 5, 7);
+      ctx.fillStyle = marker; FONT['3'].forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') ctx.fillRect(gx + x, gy + y, 1, 1); }));
+    }
   }
 }
 const BALL = ['.hOOo.','hOOdOo','OOdOOo','OdOOoo','OOOooo','.oooo.'];
@@ -2021,18 +2027,38 @@ function give(side, i){ M.ball.holder = { side, i }; M.ball.fl = null; if (side 
    C: in and around the paint. PG: circling the 3-point line. SG/SF: anywhere with a look, always relocating.
    PF: mid-range and the elbows, and he drives at the rim when he gets it. */
 const ROLE_WAIT = { PG:[1, 2], SG:[.8, 1.8], SF:[.8, 1.8], PF:[1.8, 3.2], C:[2.2, 3.8] };   // seconds at a spot before moving on
+// Every spot is clearly one kind of shot: THREE (at least 1.25 ft behind the arc; corners 1.5 ft off the sideline),
+// MID (at least 2 ft inside the line) or CLOSE (the paint). The random nudge can never carry a spot across the line.
+const SPOTS = {
+  three:[{ x:63.5, y:25 }, { x:66.5, y:8 }, { x:66.5, y:42 }, { x:88, y:1.5 }, { x:88, y:48.5 }, { x:72, y:4 }, { x:72, y:46 }],
+  mid:[{ x:74, y:17 }, { x:74, y:33 }, { x:78, y:11 }, { x:78, y:39 }, { x:71, y:25 }],
+  close:[{ x:83.5, y:19.5 }, { x:83.5, y:30.5 }, { x:85.5, y:25 }, { x:81, y:25 }],
+};
+function fixSpot(p, kind){
+  const rim = RIM_R, dx = p.x - rim.x, dy = p.y - rim.y, d = Math.hypot(dx, dy) || 1;
+  const corner = p.x > rim.x - 9;                                     // where the 3-pt line runs straight along the sideline
+  if (kind === 'three') {
+    if (corner) return { x:clamp(p.x, rim.x - 9, 92), y:p.y < 25 ? clamp(p.y, .8, 1.5) : clamp(p.y, 48.5, 49.2) };
+    const r = Math.max(d, 25);                                        // 25 ft = 1.25 ft behind the arc
+    return { x:rim.x + dx / d * r, y:clamp(rim.y + dy / d * r, .8, 49.2) };
+  }
+  if (kind === 'mid') {
+    const r = clamp(d, 11, 21.75);                                    // 21.75 ft = 2 ft inside the line
+    const q = { x:rim.x + dx / d * r, y:rim.y + dy / d * r };
+    return { x:q.x, y:clamp(q.y, 3.5, 46.5) };                        // and never out in the corner lane
+  }
+  return { x:clamp(p.x, 79, 88), y:clamp(p.y, 18, 32) };            // close: the paint
+}
 function roleSpot(pos, mates){
-  const rim = RIM_R;
+  const kind = pos === 'C' ? 'close' : pos === 'PF' ? 'mid' : pos === 'PG' ? 'three' : pick(['three', 'three', 'mid']);   // SG/SF lean to threes
   const pickOne = () => {
-    if (pos === 'C') return { x:rnd(80, 87), y:rnd(18.5, 31.5) };                              // the paint
-    if (pos === 'PG') { const a = rnd(-1.15, 1.15); return { x:rim.x - Math.cos(a) * 24.8, y:clamp(rim.y + Math.sin(a) * 24.8, 3, 47) }; }   // on the arc
-    if (pos === 'PF') return pick([{ x:74, y:17 }, { x:74, y:33 }, { x:78, y:11 }, { x:78, y:39 }, { x:71, y:25 }]);   // elbows, mid-range
-    return pick(OUR_SPOTS.filter((s, k) => ![7, 8, 11].includes(k)));                             // SG/SF: wings, corners, elbows, top
+    if (pos === 'PG') { const a = rnd(-1.1, 1.1); return { x:RIM_R.x - Math.cos(a) * 25.5, y:RIM_R.y + Math.sin(a) * 25.5 }; }   // around the arc
+    return pick(SPOTS[kind]);
   };
   // spread out: don't stand within 7 ft of a teammate's spot
   let best = null;
   for (let t = 0; t < 10; t++) {
-    const s = pickOne(), p = { x:clamp(s.x + rnd(-1.5, 1.5), 48, 92), y:clamp(s.y + rnd(-1.5, 1.5), 2, 48) };
+    const s0 = pickOne(), p = fixSpot({ x:clamp(s0.x + rnd(-1.5, 1.5), 48, 93), y:s0.y + rnd(-1.5, 1.5) }, kind);
     if (mates.every(m => Math.hypot(m.tx - p.x, m.ty - p.y) > 7)) return p;
     best = p;
   }
