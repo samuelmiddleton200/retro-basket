@@ -2154,8 +2154,8 @@ function moveTo(e, tx, ty, sp, dt){
   e.moving = true; e.anim += dt * sp * 1.1;                           // legs keep pace with speed (8 frames a stride)
   return d - s < .3;
 }
-// feet per real second = 12 + 0.45 x speed rating (user's numbers): the full court takes 7.5 s at 1/10, 5.6 s at 10/10
-const RUN_BASE = 12, RUN_PER = .45;
+// feet per real second = 11 + 0.45 x speed rating (user's numbers): the full court takes 8.2 s at 1/10, 6.0 s at 10/10
+const RUN_BASE = 11, RUN_PER = .45;
 const ourSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
 const oppSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
 const BALL_SLOW = .9;                                                 // whoever has the ball moves 10% slower
@@ -2495,7 +2495,7 @@ function updateReb(dt){
   }
   give(side, best.i); M.reb = null; M.st[side].reb++; if (side === 'us') pbFor(M.pbox, winner.p).reb++;
   if (side === 'us') {
-    if (offensive) { M.shot = 14; M.phase = 'live'; winner.spot = -1; winner.tx = winner.x; winner.ty = winner.y; banner('OFFENSIVE REBOUND', winner.p.ln, 800); }
+    if (offensive) { M.shot = 24; M.phase = 'live'; /* any rebound resets the shot clock to a full 24 */ winner.spot = -1; winner.tx = winner.x; winner.ty = winner.y; banner('OFFENSIVE REBOUND', winner.p.ln, 800); }
     else { banner('REBOUND', winner.p.ln, 700); startOurs(winner.x, winner.y, false); }
   } else {
     if (offensive) { M.phase = 'opp'; M.oppPlan = { passes:0, t:.35, state:'set', stealRoll:false }; }
