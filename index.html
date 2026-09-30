@@ -510,13 +510,14 @@ const METER_K = Math.log(.5) / Math.log(.75);
 const METER_PEAK = .5;
 const meterFill = t => { const u = t / METER_PEAK; return u <= 1 ? Math.pow(clamp(u, 0, 1), METER_K) : Math.pow(clamp(2 - u, 0, 1), METER_K); };
 /* Shot math v9, built from the user's targets. SHOT_AT_90: the open make chance with a 90% release, by shooting
-   rating, at close range (5 ft or less), mid-range (15 ft) and the 3-point line (23.75 ft):
-     1-star shooter (~2/10): 70% / 60% / 45%     3-star (~5/10): 75% / 65% / 50%     5-star (~9.5/10): 85% / 73% / 60%
+   rating, at 5 ft (close), 15 ft (mid-range), 20 ft and 30 ft (straight lines in between, so the 3-pt line is ~39-53%):
+     2/10: 70% / 60% / 45% / 30%     5/10: 75% / 65% / 51% / 35%     10/10: 86% / 74% / 60% / 42%
    An 80% release keeps 93% of that up close, 92% at mid-range and 89% from three (1-star: 65 / 55 / 40).
    Between 80 and 90% it climbs steadily; below 80% it drops as ((meter - 25%) / 55%)^2 (v11: 75% keeps .83, 70% .67, 60% .40, 50% .21, 25% or less 0).
-   Past the line: -3% a foot out to 30 ft, then it falls off fast. Contested = 75% of open. 95%+ is PERFECT (handled by the caller). */
-const SHOT_AT_90 = [[1, .68, .58, .43], [2, .70, .60, .45], [5, .75, .65, .50], [9.5, .85, .73, .60], [10, .86, .74, .61]];
-const SHOT_D = [5, 15, 23.75];
+   Past 30 ft it falls off fast (x e^(-0.12 per foot)). Contested = 75% of open. 95%+ is PERFECT (handled by the caller). */
+// columns: 5 ft (close), 15 ft (mid-range), 20 ft, 30 ft (user, v12: 20 ft 45%/60% and 30 ft 30%/42% for 2/10 and 10/10)
+const SHOT_AT_90 = [[1, .68, .58, .43, .29], [2, .70, .60, .45, .30], [5, .75, .65, .506, .345], [9.5, .85, .73, .591, .413], [10, .86, .74, .60, .42]];
+const SHOT_D = [5, 15, 20, 30];
 const lerpTable = (rows, x, col) => {                                  // straight-line between the table rows
   if (x <= rows[0][0]) return rows[0][col];
   for (let i = 1; i < rows.length; i++) if (x <= rows[i][0]) { const [a, b] = [rows[i - 1], rows[i]]; return lerp(a[col], b[col], (x - a[0]) / (b[0] - a[0])); }
@@ -524,12 +525,10 @@ const lerpTable = (rows, x, col) => {                                  // straig
 };
 // make chance with a 90% release, for this shooting rating and distance
 function shotBase(d, sht){
-  const [c, m, t] = [1, 2, 3].map(col => lerpTable(SHOT_AT_90, clamp(sht, 1, 10), col));
-  if (d <= SHOT_D[0]) return c;
-  if (d <= SHOT_D[1]) return lerp(c, m, (d - SHOT_D[0]) / (SHOT_D[1] - SHOT_D[0]));
-  if (d <= SHOT_D[2]) return lerp(m, t, (d - SHOT_D[1]) / (SHOT_D[2] - SHOT_D[1]));
-  if (d <= 30) return t * (1 - .03 * (d - SHOT_D[2]));                 // a deep three
-  return t * (1 - .03 * (30 - SHOT_D[2])) * Math.exp(-.12 * (d - 30));   // a heave
+  const v = [1, 2, 3, 4].map(col => lerpTable(SHOT_AT_90, clamp(sht, 1, 10), col));   // chance at 5, 15, 20, 30 ft
+  if (d <= SHOT_D[0]) return v[0];
+  for (let k = 1; k < SHOT_D.length; k++) if (d <= SHOT_D[k]) return lerp(v[k - 1], v[k], (d - SHOT_D[k - 1]) / (SHOT_D[k] - SHOT_D[k - 1]));
+  return v[3] * Math.exp(-.12 * (d - 30));                             // a heave from past 30 ft
 }
 // how much of that the release keeps: 1 at 90%, a little more up to 94%; the 80% level depends on distance
 const Q80 = d => 1 - .1 * lerpTable([[5, .71], [15, .83], [23.75, 1.11]], d, 1);   // .93 close, .92 mid, .89 three
