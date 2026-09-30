@@ -846,9 +846,9 @@ function applyResult(M, us, them, box, pbox = {}){
   const newBoost = (G.boosts || []).length * FAN_NEW;
   G.boosts = (G.boosts || []).map(n => n - 1).filter(n => n > 0);
   // fans react to the matchup: +4 for a win / -4 for a loss, plus 1% for every half star the other team was better
-  // (minus 1% for every half star worse). Every result moves fans at least 2%: a win is +2% or more, a loss -2% or more.
+  // (minus 1% for every half star worse). Every result moves fans at least 2%, and a loss never costs more than 7%.
   const upset = Math.round((teamR(M.opp).stars - userRatings().stars) / .5);
-  const fanResult = win ? Math.max(2, FAN_WIN + upset) : Math.min(-2, FAN_LOSS + upset);
+  const fanResult = win ? Math.max(2, FAN_WIN + upset) : clamp(FAN_LOSS + upset, -7, -2);
   const fansBefore = G.fans;
   G.fans = clamp(G.fans + fanResult + newBoost, FAN_MIN, 100);
   for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
