@@ -509,18 +509,41 @@ const posColor = pos => `pc-${pos}`;
 const METER_K = Math.log(.5) / Math.log(.75);
 const METER_PEAK = .5;
 const meterFill = t => { const u = t / METER_PEAK; return u <= 1 ? Math.pow(clamp(u, 0, 1), METER_K) : Math.pow(clamp(2 - u, 0, 1), METER_K); };
-// Distance: falls gently to the 3-point line, stays near 75% of a 5-footer across normal 3-point range
-// (a three is worth 1.5x, so this keeps threes slightly better value), then drops off for heaves past 30 ft.
-const distM = d => d <= 24 ? Math.exp(-.0145 * (Math.max(d, 3) - 3)) : d <= 30 ? .737 - .008 * (d - 24) : .689 * Math.exp(-.1 * (d - 30));
-const ratingF = (s, d) => 1 - (10 - s) / 9 * (.36 + .2 * clamp((d - 3) / 21, 0, 1.5));
-// Release quality (v8, user: drop-off 10 points lower): 75%+ on the meter is a good release (0.92 to 1.00);
-// below that it falls off: 70% gives 0.73, 60% 0.41, 50% 0.18, 40% 0.05, 30% or less 0. 95%+ is still PERFECT.
-const releaseF = m => m >= .75 ? .92 + (Math.min(m, 1) - .75) / .25 * .08 : m <= .3 ? 0 : .92 * Math.pow((m - .3) / .45, 2);
+/* Shot math v9, built from the user's targets. SHOT_AT_90: the open make chance with a 90% release, by shooting
+   rating, at close range (5 ft or less), mid-range (15 ft) and the 3-point line (23.75 ft):
+     1-star shooter (~2/10): 70% / 60% / 45%     3-star (~5/10): 75% / 65% / 50%     5-star (~9.5/10): 85% / 73% / 60%
+   An 80% release keeps 93% of that up close, 92% at mid-range and 89% from three (1-star: 65 / 55 / 40).
+   Between 80 and 90% it climbs steadily; below 80% it drops faster and faster (30% or less never goes in).
+   Past the line: -3% a foot out to 30 ft, then it falls off fast. Contested = 75% of open. 95%+ is PERFECT (handled by the caller). */
+const SHOT_AT_90 = [[1, .68, .58, .43], [2, .70, .60, .45], [5, .75, .65, .50], [9.5, .85, .73, .60], [10, .86, .74, .61]];
+const SHOT_D = [5, 15, 23.75];
+const lerpTable = (rows, x, col) => {                                  // straight-line between the table rows
+  if (x <= rows[0][0]) return rows[0][col];
+  for (let i = 1; i < rows.length; i++) if (x <= rows[i][0]) { const [a, b] = [rows[i - 1], rows[i]]; return lerp(a[col], b[col], (x - a[0]) / (b[0] - a[0])); }
+  return rows[rows.length - 1][col];
+};
+// make chance with a 90% release, for this shooting rating and distance
+function shotBase(d, sht){
+  const [c, m, t] = [1, 2, 3].map(col => lerpTable(SHOT_AT_90, clamp(sht, 1, 10), col));
+  if (d <= SHOT_D[0]) return c;
+  if (d <= SHOT_D[1]) return lerp(c, m, (d - SHOT_D[0]) / (SHOT_D[1] - SHOT_D[0]));
+  if (d <= SHOT_D[2]) return lerp(m, t, (d - SHOT_D[1]) / (SHOT_D[2] - SHOT_D[1]));
+  if (d <= 30) return t * (1 - .03 * (d - SHOT_D[2]));                 // a deep three
+  return t * (1 - .03 * (30 - SHOT_D[2])) * Math.exp(-.12 * (d - 30));   // a heave
+}
+// how much of that the release keeps: 1 at 90%, a little more up to 94%; the 80% level depends on distance
+const Q80 = d => 1 - .1 * lerpTable([[5, .71], [15, .83], [23.75, 1.11]], d, 1);   // .93 close, .92 mid, .89 three
+function releaseF(m, d = 15){
+  const q80 = Q80(d);
+  if (m >= .9) return 1 + (Math.min(m, .95) - .9) * .4;
+  if (m >= .8) return q80 + (m - .8) / .1 * (1 - q80);
+  return q80 * Math.pow(Math.max(0, (m - .3) / .5), 1.6);
+}
 function shotChance(meter, d, sht, contested){
-  // a small floor plus release quality x rating, scaled by distance; tuned so a good player shoots about 65%. Contested is 75% of open
-  const open = (.15 + .7 * releaseF(meter) * ratingF(sht, d)) * distM(d);
+  const open = Math.min(.98, shotBase(d, sht) * releaseF(meter, d));
   return contested ? open * .75 : open;
 }
+const distM = d => shotBase(d, 5) / shotBase(0, 5);                   // relative distance factor (for the PDF note)
 const fumbleChance = (hnd, open) => lerp(.1, .02, (hnd - 1) / 9) * (open ? .5 : 1);
 
 /* ============================ state ============================ */
