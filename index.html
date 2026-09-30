@@ -2658,9 +2658,8 @@ function draw(){
   ctx.drawImage(courtCv, Math.round(cam), 0, CW, CH, 0, 0, CW, CH);
   cam = Math.round(cam * 100) / 100;
   const t = M.t;
-  const openMark = M.phase === 'live' || M.phase === 'back';        // full-court offense: open markers from the moment we have it
   const ents = [
-    ...M.our.map((e, i) => ({ y:e.y, f:() => drawPlayer(e, M.uni.us, i === M.handler && (M.phase === 'live' || M.phase === 'back') ? '#ffd23f' : openMark && i !== M.handler && isOpen(i) ? '#44ff6a' : null) })),
+    ...M.our.map((e, i) => ({ y:e.y, f:() => drawPlayer(e, M.uni.us, i === M.handler && (M.phase === 'live' || M.phase === 'back') ? '#ffd23f' : null) })),   // only the ball handler gets an arrow
     ...M.th.map(e => ({ y:e.y, f:() => drawPlayer(e, M.uni.them, null) })),
     { y:25.01, f:() => { drawHoop(0, M.flash > 0 && B.x < 47); drawHoop(1, M.flash > 0 && B.x > 47); } },
     { y:-2, f:() => { drawBench('us'); drawBench('them'); } },
