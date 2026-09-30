@@ -1954,7 +1954,7 @@ function startMatch(){
   const L = savedLive();
   if (L) {                                                          // resuming a saved game
     Object.assign(M, { q:L.q, clock:L.clock, us:L.us, them:L.them, box:L.box || {}, pbox:L.pbox || {}, st:L.st || M.st, startQ:L.startQ || 'us' });
-    M.our.forEach(e => { e.fat = e.fat0 = (L.fat || {})[e.p.id] || 0; e.x = rnd(40, 52); e.y = rnd(8, 42); });
+    M.our.forEach(e => { e.fat = e.fat0 = 0; e.x = rnd(40, 52); e.y = rnd(8, 42); });   // tiredness follows the clock within the quarter
     M.th.forEach(e => { e.x = rnd(40, 54); e.y = rnd(8, 42); });
     hud();
     if (L.poss === 'them') startTheirs(47, 25, false); else startOurs(47, 25, false);   // the ball starts at half court
@@ -2127,7 +2127,7 @@ function endQuarter(){
   showStats(title, span, final ? 'Finish' : q >= 4 ? 'OT' : 'Q' + (q + 1), () => {
     if (final) { finishLive(M.id); return; }
     M.q++; M.clock = M.q > 4 ? 300 : 900; M.buzzer = false;
-    [...M.our, ...M.th].forEach(e => { e.fat0 = Math.max(0, (e.fat || 0) - .05); e.fat = e.fat0; });   // 5% back at each break
+    [...M.our, ...M.th].forEach(e => { e.fat0 = 0; e.fat = 0; });                // full recovery at every break: each quarter starts fresh
     quarterStarter(M.q) === 'us' ? startOurs(10, 25, true) : startTheirs(84, 25, true);
     hud();
   });
@@ -2187,14 +2187,14 @@ function moveTo(e, tx, ty, sp, dt){
   e.moving = true; e.anim += dt * sp * 1.1;                           // legs keep pace with speed (8 frames a stride)
   return d - s < .3;
 }
-// feet per real second = 11 + 0.45 x speed rating (user's numbers): the full court takes 8.2 s at 1/10, 6.0 s at 10/10
-const RUN_BASE = 11, RUN_PER = .45;
+// feet per real second: 11.5 at 1/10, +0.35 per rating point (14.65 at 10/10); the full court takes 8.2 s at 1/10, 6.4 s at 10/10
+const RUN_BASE = 11.15, RUN_PER = .35;
 const ourSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
 const oppSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
 const SETUP_HOLD = 3;                                                // real seconds the PG holds under the rim after a score (clocks stopped)
 const BALL_SLOW = .9;                                                 // whoever has the ball moves 10% slower
 // Stamina, both teams: over each quarter a player loses 15% speed at 1/10 stamina down to 5% at 10/10,
-// steadily with the game clock. Each break gives 5% back, so tiredness builds through the game.
+// steadily with the game clock. Every quarter break is a full recovery (user), so it never snowballs.
 // (Your Conditioning upgrade trims your players' loss by 10% a level.)
 const quarterLoss = (e, ours) => (15 - (clamp(e.p.sta, 1, 10) - 1) * 10 / 9) / 100 * (ours ? 1 - .1 * (G.fac.conditioning - 1) : 1);
 function tireAll(){
