@@ -1046,7 +1046,8 @@ function hubHTML(){
         <div class="px" style="font-size:18px">VS</div>
         <div class="t">${badge(o)}<div class="n">${esc(o.name)}</div>${starsHTML(orr.stars)}<div class="muted num" style="font-size:12px">${o.w}-${o.l}</div></div>
       </div>
-      <div class="row"><button class="btn go grow" data-a="play">Play</button><button class="btn" data-a="sim">Sim</button></div>
+      ${savedLive() ? (L => `<div class="row"><button class="btn go grow" data-a="resume">Resume · <span class="num">${qText(L.q)} ${clockText(L.clock)} · ${L.us}-${L.them}</span></button></div>`)(G.live)
+        : `<div class="row"><button class="btn go grow" data-a="play">Play</button><button class="btn" data-a="sim">Sim</button></div>`}
     </div>`;
   } else if (G.phase === 'playoffs') {
     left = `<div class="panel stack"><div class="label">Playoffs</div><div>${G.playoffs.seeds.includes('U') ? 'Your season is over.' : 'You missed the top 4 in your conference.'}</div><button class="btn go" data-a="simPlayoffs">Sim the playoffs</button></div>`;
@@ -1358,7 +1359,8 @@ $('#ui').addEventListener('click', ev => {
     screen = 'kit'; render();
   }
   else if (act === 'tipoff') { G.kit = { ...kitSel.us }; save(); screen = 'hub'; startMatch(); }
-  else if (act === 'sim') simMatch();
+  else if (act === 'resume') { if (G.live && G.live.ks) kitSel = G.live.ks; screen = 'hub'; startMatch(); }
+  else if (act === 'sim') { if (!savedLive()) simMatch(); }         // a saved game has to be finished, not simmed over
   else if (act === 'simPlayoffs') { resolvePlayoffs(null); if (G.phase === 'playoffs') resolvePlayoffs(null); save(); render(); }
   else if (act === 'settings') speedSheet();
   else if (act === 'capUp') { if (G.credits >= CAP_COST && capNow() < CAP_MAX) { G.credits -= CAP_COST; G.cap = Math.min(CAP_MAX, capNow() + CAP_STEP); save(); render(); toast(`Salary cap is now ${money(G.cap)}.`); } }
@@ -1403,14 +1405,17 @@ function aiDraft(){
 function speedSheet(inGame){
   openSheet(`<div class="px">Game speed</div><div class="muted" style="font-size:13px">How fast the game clock runs. At 10x a 15:00 quarter takes 90 seconds.</div>
     <div class="row">${[5, 10, 15].map(s => `<button class="btn grow ${G.speed === s ? 'go' : ''}" data-s="${s}">${s}x</button>`).join('')}</div>
-    ${inGame ? `<div class="row"><button class="btn grow" id="res">Resume</button><button class="btn" id="simr">Sim rest</button></div>` : ''}`, sh => {
+    ${inGame ? `<div class="row"><button class="btn go grow" id="res">Resume</button><button class="btn" id="simr">Sim rest</button></div>
+      <button class="btn" id="savex">Save &amp; exit</button>` : ''}`, sh => {
     sh.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; save(); closeSheet(); if (!inGame) render(); else paused = false; });
-    if (inGame) { sh.querySelector('#res').onclick = () => { closeSheet(); paused = false; }; sh.querySelector('#simr').onclick = () => { closeSheet(); simRest(); }; }
+    if (inGame) { sh.querySelector('#res').onclick = () => { closeSheet(); paused = false; }; sh.querySelector('#simr').onclick = () => { closeSheet(); simRest(); };
+      sh.querySelector('#savex').onclick = () => { closeSheet(); saveAndExit(); }; }
   });
 }
 
 /* ============================ matches ============================ */
 function endMatch(M, us, them, box, pbox){
+  delete G.live;                                                    // finished: no saved game to resume any more
   applyResult(M, us, them, box, pbox);
   if (M.kind === 'regular') { G.results[G.week] = { us, them }; finishWeek(); }
   else resolvePlayoffs(us > them ? 'U' : M.opp.id);
@@ -1940,10 +1945,51 @@ function startMatch(){
   $('#tmO').style.background = ng.opp.c1; $('#aO').textContent = ng.opp.abbr; $('#aO').style.color = ng.opp.c2;
   $('#ui').hidden = true; $('#game').hidden = false; paused = false;
   fit(); hud(); setTimeout(() => { if (M) fit(); }, 300);
-  startOurs(10, 25, true);
-  banner('TIP OFF', `${t.name} ball`, 1000);
+  const L = savedLive();
+  if (L) {                                                          // resuming a saved game
+    Object.assign(M, { q:L.q, clock:L.clock, us:L.us, them:L.them, box:L.box || {}, pbox:L.pbox || {}, st:L.st || M.st });
+    M.our.forEach(e => { e.fat = e.fat0 = (L.fat || {})[e.p.id] || 0; e.x = rnd(40, 52); e.y = rnd(8, 42); });
+    M.th.forEach(e => { e.x = rnd(40, 54); e.y = rnd(8, 42); });
+    hud();
+    if (L.poss === 'them') startTheirs(47, 25, false); else startOurs(47, 25, false);   // the ball starts at half court
+    banner('RESUMED', `${qText(L.q)} · ${clockText(L.clock)} · ${L.poss === 'them' ? M.opp.name : t.name} ball`, 1300);
+  } else {
+    startOurs(10, 25, true);
+    banner('TIP OFF', `${t.name} ball`, 1000);
+  }
   lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
 }
+/* ---- save & exit a game in progress ----
+   G.live keeps the quarter, clock, score, box scores and who had the ball. The game isn't recorded until it's
+   finished; resuming puts the ball with that team at half court and the clock runs on from there. */
+function livePossession(){
+  if (['back', 'live', 'pass', 'shot'].includes(M.phase)) return 'us';
+  if (['opp', 'opass', 'oshot'].includes(M.phase)) return 'them';
+  if (M.ball.holder) return M.ball.holder.side;
+  if (M.reb && M.reb.shotSide) return M.reb.shotSide === 'us' ? 'them' : 'us';   // a missed shot in play: the defense
+  const F = M.ball.fl; if (F && F.side) return F.side === 'us' ? 'them' : 'us';     // a made shot: the other team inbounds
+  return 'us';
+}
+function saveAndExit(){
+  if (!M || M.phase === 'done') return;
+  let q = M.q, clock = M.clock;
+  if (clock <= 0) { q++; clock = q > 4 ? 300 : 900; }                // saved at the end of a quarter: resume at the next one
+  G.live = { opp:M.opp.id, kind:M.kind, week:G.week, season:G.season, q, clock, us:M.us, them:M.them, poss:livePossession(),
+    box:M.box, pbox:M.pbox, st:M.st, ks:kitSel, fat:Object.fromEntries(M.our.map(e => [e.p.id, e.fat || 0])) };
+  M = null; cancelAnimationFrame(raf); hideMeter(); hideMeter('o'); paused = false;
+  $('#game').hidden = true; $('#ui').hidden = false;
+  save(); screen = 'hub'; render();
+  toast('Game saved. Tap Resume to pick it up.');
+}
+// is there a saved game, and is it still the next game on the schedule?
+function savedLive(){
+  const L = G.live, ng = nextGameInfo();
+  if (!L) return null;
+  if (!ng || ng.opp.id !== L.opp || ng.kind !== L.kind || L.season !== G.season || (L.kind === 'regular' && L.week !== G.week)) { delete G.live; return null; }
+  return L;
+}
+const clockText = c => `${Math.floor(Math.max(0, c) / 60)}:${String(Math.floor(Math.max(0, c) % 60)).padStart(2, '0')}`;
+const qText = q => q > 4 ? 'OT' : ['1st', '2nd', '3rd', '4th'][q - 1];
 function hud(){
   $('#sU').textContent = M.us; $('#sO').textContent = M.them;
   const c = Math.max(0, M.clock);
@@ -2417,8 +2463,12 @@ function startRebound(F){
 function updateReb(dt){
   const R = M.reb, pt = R.pt;
   const all = [...M.our.map((e, i) => ({ e, side:'us', i })), ...M.th.map((e, i) => ({ e, side:'them', i }))];
+  // everyone within 26 ft goes for it, and each team's closest player always does, however far away the ball is
+  // (a full-court heave used to land where nobody was close enough, and everyone just stood there)
+  const closest = side => all.filter(o => o.side === side).reduce((a, b) => dist(b.e, pt) < dist(a.e, pt) ? b : a);
+  const chasers = new Set([closest('us'), closest('them')]);
   for (const o of all) {
-    if (dist(o.e, pt) > 26) { o.e.moving = false; continue; }
+    if (dist(o.e, pt) > 26 && !chasers.has(o)) { o.e.moving = false; continue; }
     const sp = (o.side === 'us' ? ourSpeed(o.e) : oppSpeed(o.e)) * (o.side === R.shotSide ? .88 : 1);
     moveTo(o.e, pt.x, pt.y, sp, dt);
     if (o.side === 'us') tire(o.e, dt);
