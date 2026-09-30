@@ -785,8 +785,9 @@ function homeGate(){
 // salary cap: $20M to start, +$10M per 25 credits, up to $70M
 const CAP_START = 20, CAP_MAX = 70, CAP_STEP = 10, CAP_COST = 25;
 const capNow = () => G.cap || CAP_START;
-// training a stat: 2 CR for the first point you add, +1 CR for each point after that (p.tr counts points trained per stat)
-const trainCost = (p, k) => 2 + ((p.tr || {})[k] || 0);
+// training a stat doubles each time: 2, 4, 8, 16, 32 CR... (p.tr counts points trained per stat), so one bad player
+// can't cheaply be turned into an elite shooter
+const trainCost = (p, k) => 2 * Math.pow(2, (p.tr || {})[k] || 0);
 // credits per game: 2 under 20% fans, then +1 for every 20% (20-40% is 3, ... 80-100% is 6)
 const gameCredits = () => 2 + Math.floor(Math.min(G.fans, 99.9) / 20);
 // every game each player is paid 1/17 of his yearly salary (14 regular-season games + up to 3 playoff games)
@@ -1122,7 +1123,7 @@ function playerHTML(){
           <span class="px num" style="text-align:right">${p[k]}/10</span>
           <button class="btn sm go" data-train="${k}" ${p[k] >= 10 || G.credits < cost(k) ? 'disabled' : ''}>${p[k] >= 10 ? 'MAX' : `+1 · <span class="num">${cost(k)}</span>CR`}</button></div>
           <div class="muted" style="font-size:12px;margin:-6px 0 8px">${RATE_DESC[k]}</div>`).join('')}
-        <div class="muted" style="font-size:13px">Training starts at <span class="num">2</span> credits a point and each point in the same stat costs <span class="num">1</span> more (you have <span class="num">${G.credits}</span> CR).${p.gp ? ` ${(p.pts / p.gp).toFixed(1)} PPG this season.` : ''}</div>
+        <div class="muted" style="font-size:13px">Training starts at <span class="num">2</span> credits a point and doubles for each point in the same stat (<span class="num">2, 4, 8, 16…</span>) (you have <span class="num">${G.credits}</span> CR).${p.gp ? ` ${(p.pts / p.gp).toFixed(1)} PPG this season.` : ''}</div>
         <div class="panel" style="margin-top:10px;overflow-x:auto;padding:6px 10px">
           <div class="label" style="margin-bottom:2px">Stats</div>
           <table class="pst"><thead><tr><th></th><th>GP</th><th>PPG</th><th>FG</th><th>3PT</th><th>REB</th><th>PASS</th><th>TO</th></tr></thead>
