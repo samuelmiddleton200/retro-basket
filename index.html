@@ -2082,12 +2082,13 @@ function moveTo(e, tx, ty, sp, dt){
   if (d < .3) { e.moving = false; return true; }
   const s = Math.min(d, sp * dt); e.x += dx / d * s; e.y += dy / d * s;
   if (Math.abs(dx) > .2) e.face = dx > 0 ? 1 : -1;
-  e.moving = true; e.anim += dt * 16;                                // 8 frames, about 2 strides a second
+  e.moving = true; e.anim += dt * sp * 1.1;                           // legs keep pace with speed (8 frames a stride)
   return d - s < .3;
 }
-// speed gap kept small: a 10-speed player is only about 35% quicker than a 2-speed one
-const ourSpeed = e => (9 + e.p.spd * .45) * (1 - (e.fat || 0));
-const oppSpeed = e => (9 + e.p.spd * .45) * (1 - (e.fat || 0));
+// feet per real second = 15 + 0.45 x speed rating (user's numbers): the full court takes 6.1 s at 1/10, 4.9 s at 10/10
+const RUN_BASE = 15, RUN_PER = .45;
+const ourSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
+const oppSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
 const BALL_SLOW = .9;                                                 // whoever has the ball moves 10% slower
 // Stamina, both teams: over each quarter a player loses 15% speed at 1/10 stamina down to 5% at 10/10,
 // steadily with the game clock. Each break gives 5% back, so tiredness builds through the game.
