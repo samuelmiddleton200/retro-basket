@@ -2280,6 +2280,8 @@ function updateOpp(dt){
   });
   if (M.phase === 'opass' || M.phase === 'oshot') return;
   const h = holderEnt(); if (!h) return;
+  // end of the quarter: with 15 seconds or less on the clock, whoever has it shoots now, from anywhere (buzzer beater)
+  if (M.clock <= 15 && M.phase === 'opp') { h.tx = h.x; h.ty = h.y; oppShoot(h); return; }
   if (P.state === 'bring') {
     if (P.stealRoll && h.x < 50) { const i = nearestIdx(M.our, h); M.st.them.to++; banner('STEAL!', `${M.our[i].p.ln}`, 900); give('us', i); startOurs(M.our[i].x, M.our[i].y, false); return; }
     if (dist(h, { x:h.tx, y:h.ty }) < .5) { P.state = 'set'; P.t = .35; }
