@@ -513,7 +513,7 @@ const meterFill = t => { const u = t / METER_PEAK; return u <= 1 ? Math.pow(clam
    rating, at close range (5 ft or less), mid-range (15 ft) and the 3-point line (23.75 ft):
      1-star shooter (~2/10): 70% / 60% / 45%     3-star (~5/10): 75% / 65% / 50%     5-star (~9.5/10): 85% / 73% / 60%
    An 80% release keeps 93% of that up close, 92% at mid-range and 89% from three (1-star: 65 / 55 / 40).
-   Between 80 and 90% it climbs steadily; below 80% it drops steeply (v10: 75% keeps .79, 70% .60, 60% .31, 50% .11, 35% or less 0).
+   Between 80 and 90% it climbs steadily; below 80% it drops as ((meter - 25%) / 55%)^2 (v11: 75% keeps .83, 70% .67, 60% .40, 50% .21, 25% or less 0).
    Past the line: -3% a foot out to 30 ft, then it falls off fast. Contested = 75% of open. 95%+ is PERFECT (handled by the caller). */
 const SHOT_AT_90 = [[1, .68, .58, .43], [2, .70, .60, .45], [5, .75, .65, .50], [9.5, .85, .73, .60], [10, .86, .74, .61]];
 const SHOT_D = [5, 15, 23.75];
@@ -537,7 +537,7 @@ function releaseF(m, d = 15){
   const q80 = Q80(d);
   if (m >= .9) return 1 + (Math.min(m, .95) - .9) * .4;
   if (m >= .8) return q80 + (m - .8) / .1 * (1 - q80);
-  return q80 * Math.pow(Math.max(0, (m - .35) / .45), 2);             // below 80%: the old steep drop (75% keeps .79, 70% .60, 60% .31, 50% .11, 35% 0)
+  return q80 * Math.pow(Math.max(0, (m - .25) / .55), 2);             // below 80%: 75% keeps .83, 70% .67, 60% .40, 50% .21, 40% .07, 25% 0
 }
 function shotChance(meter, d, sht, contested){
   const open = Math.min(.98, shotBase(d, sht) * releaseF(meter, d));
