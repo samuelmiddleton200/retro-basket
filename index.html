@@ -2249,10 +2249,16 @@ function updateCrash(dt){
 }
 function updateBack(dt){
   const c = M.our[M.handler];
-  M.our.forEach((e, i) => { if (i === M.handler && M.hold > 0) { e.moving = false; return; } moveTo(e, e.tx, e.ty, i === M.handler ? ourSpeed(e) * BALL_SLOW : ourSpeed(e), dt); tire(e, dt); });
+  M.our.forEach((e, i) => {
+    if (i === M.handler && M.hold > 0) { e.moving = false; return; }
+    // after a score our C stays back with the PG, about 5 ft to his side, until the PG crosses half court (5 on 3 up front)
+    if (M.afterScore && e.p.pos === 'C' && i !== M.handler) { e.tx = c.x + 1; e.ty = clamp(c.y + (c.y < 25 ? 5 : -5), 2, 48); }
+    moveTo(e, e.tx, e.ty, i === M.handler ? ourSpeed(e) * BALL_SLOW : ourSpeed(e), dt); tire(e, dt);
+  });
   guardOurs(dt);
   if (c.x >= 47.5) {
-    M.phase = 'live'; M.afterScore = false; tip('Tap a teammate to pass · hold SHOOT to shoot'); c.spot = 0;
+    if (M.afterScore) { M.afterScore = false; M.our.forEach((e, i) => { if (e.p.pos === 'C' && i !== M.handler) relocate(e, M.our, i); }); }   // C heads to the paint now
+    M.phase = 'live'; tip('Tap a teammate to pass · hold SHOOT to shoot'); c.spot = 0;
     if (c.p.pos === 'PF') { c.tx = RIM_R.x - rnd(3.5, 5); c.ty = RIM_R.y + rnd(-3.5, 3.5); }   // a PF with the ball drives at the rim
   }
 }
@@ -2277,10 +2283,13 @@ function updateOpp(dt){
     if (e.shootT > 0 || (M.oshot && M.oshot.h === e)) { e.moving = false; e.still = (e.still || 0) + dt; return; }   // a shooter stays planted
     const hasBall = M.ball.holder && M.ball.holder.side === 'them' && M.th[M.ball.holder.i] === e;
     if (hasBall && M.hold > 0) { e.moving = false; e.still = 0; return; }   // setting up after a score: dribble in place
+    // after our score their C stays back with their PG, about 5 ft to his side, until the PG crosses half court
+    const trailing = M.afterScore && e.p.pos === 'C' && !hasBall && holderEnt();
+    if (trailing) { const hh = holderEnt(); e.tx = hh.x - 1; e.ty = clamp(hh.y + (hh.y < 25 ? 5 : -5), 2, 48); }
     const arrived = moveTo(e, e.tx, e.ty, oppSpeed(e) * (hasBall ? BALL_SLOW : 1), dt);
     e.still = e.moving ? 0 : (e.still || 0) + dt;
     // off the ball they keep moving too, each to the kind of spot his position likes
-    if (!hasBall && arrived && (M.phase === 'opp' || M.phase === 'opass')) {
+    if (!trailing && !hasBall && arrived && (M.phase === 'opp' || M.phase === 'opass')) {
       const i = M.th.indexOf(e);                                      // covered for a moment, or done waiting: move to a new spot
       e.cover = theyreOpen(i) ? 0 : (e.cover || 0) + dt;
       e.wait = (e.wait ?? 1) - dt; if (e.wait <= 0 || e.cover > .3) { relocateThem(e, i); e.cover = 0; }
@@ -2310,6 +2319,9 @@ function updateOpp(dt){
   const h = holderEnt(); if (!h) return;
   // end of the quarter: with 15 seconds or less on the clock, whoever has it shoots now, from anywhere (buzzer beater)
   if (M.clock <= 15 && M.phase === 'opp') { h.tx = h.x; h.ty = h.y; oppShoot(h); return; }
+  if (M.afterScore && h.x < 47) {                                     // their PG is over half court: the C can head to the paint
+    M.afterScore = false; M.th.forEach((e, i) => { if (e.p.pos === 'C' && e !== h) relocateThem(e, i); });
+  }
   if (P.state === 'bring') {
     if (P.stealRoll && h.x < 50) { const i = nearestIdx(M.our, h); M.st.them.to++; banner('STEAL!', `${M.our[i].p.ln}`, 900); give('us', i); startOurs(M.our[i].x, M.our[i].y, false); return; }
     if (dist(h, { x:h.tx, y:h.ty }) < .5) { P.state = 'set'; P.t = .35; }
@@ -2604,7 +2616,6 @@ function release(auto){
 function canvasPt(ev){ const r = cv.getBoundingClientRect(); return { x:(ev.clientX - r.left) / r.width * CW, y:(ev.clientY - r.top) / r.height * CH }; }
 cv.addEventListener('pointerdown', ev => {
   if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting || M.hold > 0) return;   // no plays during the setup after a score
-  if (M.afterScore && M.our[M.handler].x < 47.5) { tip('After a score, bring it past half court before passing'); return; }
   ev.preventDefault();
   try { cv.setPointerCapture(ev.pointerId); } catch {}
   const pt = canvasPt(ev);
