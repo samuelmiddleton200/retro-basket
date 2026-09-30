@@ -2165,6 +2165,7 @@ function moveTo(e, tx, ty, sp, dt){
 const RUN_BASE = 11, RUN_PER = .45;
 const ourSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
 const oppSpeed = e => (RUN_BASE + e.p.spd * RUN_PER) * (1 - (e.fat || 0));
+const SETUP_HOLD = 3;                                                // real seconds the PG holds under the rim after a score (clocks stopped)
 const BALL_SLOW = .9;                                                 // whoever has the ball moves 10% slower
 // Stamina, both teams: over each quarter a player loses 15% speed at 1/10 stamina down to 5% at 10/10,
 // steadily with the game clock. Each break gives 5% back, so tiredness builds through the game.
@@ -2183,7 +2184,8 @@ function update(dt){
   M.flash = Math.max(0, M.flash - dt);
   for (const e of [...M.our, ...M.th]) if (e.shootT > 0) e.shootT -= dt;
   tireAll();
-  const running = ['back', 'live', 'opp', 'shot', 'oshot', 'pass', 'opass', 'reb'].includes(M.phase);
+  const running = ['back', 'live', 'opp', 'shot', 'oshot', 'pass', 'opass', 'reb'].includes(M.phase) && !(M.hold > 0);   // clocks stop during the setup
+  if (M.hold > 0) M.hold -= dt;
   if (running && M.phase !== 'reb') M.st[['opp', 'opass', 'oshot'].includes(M.phase) ? 'them' : 'us'].poss += dt * G.speed;
   if (running) { M.clock -= dt * G.speed; if (M.phase === 'back' || M.phase === 'live' || M.phase === 'pass' || M.phase === 'shot') M.shot -= dt * 2; }
   if (M.phase === 'back') updateBack(dt);
@@ -2226,15 +2228,17 @@ function updateCrash(dt){
     if (k < 0) { e.moving = false; return; }
     moveTo(e, RIM_R.x - 5, RIM_R.y + (k ? 4.5 : -4.5), ourSpeed(e), dt); tire(e, dt);
   });
+  // their defense wants the board: their 3 nearest box out in front of the rim, full speed
+  if (!M.box3) M.box3 = M.th.map((e, i) => ({ i, d:dist(e, RIM_R) })).sort((a, b) => a.d - b.d).slice(0, 3).map(o => o.i);
   M.th.forEach((d, i) => {
-    if (!M.crash.includes(i)) { d.moving = false; return; }
-    const man = M.our[i];
-    moveTo(d, man.x - 1.2, man.y, oppSpeed(d) * .85, dt);
+    const k = M.box3.indexOf(i);
+    if (k < 0) { d.moving = false; return; }
+    moveTo(d, RIM_R.x - 4, RIM_R.y + (k - 1) * 5, oppSpeed(d), dt); d.face = 1;
   });
 }
 function updateBack(dt){
   const c = M.our[M.handler];
-  M.our.forEach((e, i) => { moveTo(e, e.tx, e.ty, i === M.handler ? ourSpeed(e) * BALL_SLOW : ourSpeed(e), dt); tire(e, dt); });
+  M.our.forEach((e, i) => { if (i === M.handler && M.hold > 0) { e.moving = false; return; } moveTo(e, e.tx, e.ty, i === M.handler ? ourSpeed(e) * BALL_SLOW : ourSpeed(e), dt); tire(e, dt); });
   guardOurs(dt);
   if (c.x >= 47.5) {
     M.phase = 'live'; tip('Tap a teammate to pass · hold SHOOT to shoot'); c.spot = 0;
@@ -2261,6 +2265,7 @@ function updateOpp(dt){
   M.th.forEach(e => {
     if (e.shootT > 0 || (M.oshot && M.oshot.h === e)) { e.moving = false; e.still = (e.still || 0) + dt; return; }   // a shooter stays planted
     const hasBall = M.ball.holder && M.ball.holder.side === 'them' && M.th[M.ball.holder.i] === e;
+    if (hasBall && M.hold > 0) { e.moving = false; e.still = 0; return; }   // setting up after a score: dribble in place
     const arrived = moveTo(e, e.tx, e.ty, oppSpeed(e) * (hasBall ? BALL_SLOW : 1), dt);
     e.still = e.moving ? 0 : (e.still || 0) + dt;
     // off the ball they keep moving too, each to the kind of spot his position likes
@@ -2269,8 +2274,11 @@ function updateOpp(dt){
   // their shot is in the air: our two nearest the rim box out in front of it
   const F = M.ball.fl;
   if (F && F.kind === 'shot' && F.side === 'them') {
-    if (!M.crash) M.crash = M.our.map((e, i) => ({ i, d:dist(e, RIM_L) })).sort((a, b) => a.d - b.d).slice(0, 2).map(o => o.i);
-    M.our.forEach((e, i) => { const k = M.crash.indexOf(i); if (k < 0) { e.moving = false; return; } moveTo(e, RIM_L.x + 5, RIM_L.y + (k ? 4.5 : -4.5), ourSpeed(e), dt); tire(e, dt); e.face = -1; });
+    // our defense wants the board: our 3 nearest box out in front of the rim; their 2 nearest (not the shooter) crash
+    if (!M.box3) M.box3 = M.our.map((e, i) => ({ i, d:dist(e, RIM_L) })).sort((a, b) => a.d - b.d).slice(0, 3).map(o => o.i);
+    if (!M.crash) M.crash = M.th.map((e, i) => ({ i, d:dist(e, RIM_L) })).filter(o => M.th[o.i] !== F.shooter).sort((a, b) => a.d - b.d).slice(0, 2).map(o => o.i);
+    M.our.forEach((e, i) => { const k = M.box3.indexOf(i); if (k < 0) { e.moving = false; return; } moveTo(e, RIM_L.x + 4, RIM_L.y + (k - 1) * 5, ourSpeed(e), dt); e.face = -1; });
+    M.th.forEach((e, i) => { const k = M.crash.indexOf(i); if (k < 0 || e === F.shooter) return; moveTo(e, RIM_L.x + 6, RIM_L.y + (k ? 4.5 : -4.5), oppSpeed(e), dt); });
     return;
   }
   // our guys defend: sit between their man and the left rim
@@ -2345,7 +2353,7 @@ function launchShot(from, rim, made, side, three, d, air){
   const off = made ? { x:0, y:0 } : { x:(Math.random() < .5 ? -1 : 1) * rnd(.7, 1.1), y:rnd(-.5, .5) };
   const short = { x:lerp(from.x, rim.x, .8), y:lerp(from.y, rim.y, .8), z:0 };
   const to = air ? short : { x:rim.x + off.x, y:rim.y + off.y, z:RIM_Z + (made ? .3 : .5) };
-  M.ball.holder = null; from.shootT = .45; M.crash = null;            // pick fresh crashers for this shot
+  M.ball.holder = null; from.shootT = .45; M.crash = null; M.box3 = null;   // pick fresh crashers and box-out men for this shot
   const T = M.st[side]; T.fga++; if (three) T.tpa++; if (made) { T.fgm++; if (three) T.tpm++; }
   if (side === 'us') { const b = pbFor(M.pbox, from.p); b.fga++; if (three) b.tpa++; if (made) { b.fgm++; if (three) b.tpm++; } }
   M.ball.fl = { kind:'shot', from:{ x:from.x + (side === 'us' ? .6 : -.6), y:from.y, z:(from.z || 0) + 7.6 }, to, t:0, dur:.55 + d * .012, peak:3 + d * .13,
@@ -2370,7 +2378,7 @@ function fumbleLoose(rec, F, side){
 function updateBall(dt){
   const B = M.ball, h = holderEnt();
   if (h && !B.fl) {
-    const dribble = h.moving || M.phase === 'back';
+    const dribble = h.moving || M.phase === 'back' || M.hold > 0;
     B.x = h.x + (h.face || 1) * 1.3; B.y = h.y + .3;
     B.z = (M.shooting && M.shooting.side === 'us' && h === M.our[M.handler]) || (M.oshot && h === M.oshot.h) ? 7.6 + (h.z || 0) : dribble ? .6 + Math.abs(Math.sin(performance.now() / 120)) * 2.4 : 3.2;
     return;
@@ -2431,7 +2439,7 @@ function updateBall(dt){
   }
   if (F.kind === 'drop') {                                        // through the net and onto the floor
     const id = M.id, side = F.side;
-    setTimeout(() => { if (!M || M.id !== id) return; side === 'us' ? startTheirs(91, 25, true) : startOurs(3, 25, true); }, 450);
+    setTimeout(() => { if (!M || M.id !== id) return; side === 'us' ? startTheirs(91, 25, true) : startOurs(3, 25, true); if (M) M.hold = M.clock > 15 ? SETUP_HOLD : 0; }, 450);
     return;
   }
   if (F.kind === 'bounce') { if (M.reb) { M.reb.landed = true; M.reb.bt = 0; } return; }   // no M.reb after a buzzer miss
@@ -2566,7 +2574,7 @@ function release(auto){
 /* ---- input ---- */
 function canvasPt(ev){ const r = cv.getBoundingClientRect(); return { x:(ev.clientX - r.left) / r.width * CW, y:(ev.clientY - r.top) / r.height * CH }; }
 cv.addEventListener('pointerdown', ev => {
-  if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting) return;
+  if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting || M.hold > 0) return;   // no plays during the setup after a score
   ev.preventDefault();
   try { cv.setPointerCapture(ev.pointerId); } catch {}
   const pt = canvasPt(ev);
@@ -2589,7 +2597,7 @@ const sb = $('#shootBtn');
 sb.addEventListener('pointerdown', ev => {
   ev.preventDefault();
   if (M && !paused && M.phase === 'oshot') { tryBlock(); return; }
-  if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting) return;
+  if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting || M.hold > 0) return;   // no plays during the setup after a score
   try { sb.setPointerCapture(ev.pointerId); } catch {} beginShot();
 });
 sb.addEventListener('pointerup', up);
