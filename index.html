@@ -824,7 +824,7 @@ const perGame = p => p.sal / PAY_GAMES;
 // to sign someone you need the cash to pay him for the rest of this season
 // free agents want a signing bonus in cash up front: $250K at 1 star up to $2.5M at 5 stars, to the nearest $50K
 const signBonus = p => Math.round((.25 + (clamp(starsSmooth(p), 1, 5) - 1) * .5625) * 20) / 20;
-const FAN_WIN = 3, FAN_LOSS = -5, FAN_NEW = 1, NEW_GAMES = 3, FAN_MIN = 15;
+const FAN_WIN = 5, FAN_LOSS = -5, FAN_NEW = 1, NEW_GAMES = 3, FAN_MIN = 15;
 function pbFor(pbox, p){ return pbox[p.id] ||= { fgm:0, fga:0, tpm:0, tpa:0, reb:0, pass:0, to:0 }; }
 // credit one simulated possession to our players: makes to a scorer, misses to a shooter plus a possible rebound
 function simCredit(box, pbox){ creditPoss({ pl:rosterArr(), box, pb:pbox }, null); }
@@ -1246,7 +1246,7 @@ function moneyOutlook(){
   const season = 7 * home + 7 * away, tips = [];
   // win more: every win is +3% fans, which pays at every home game after it
   const winWorth = gateAt(Math.min(100, f + FAN_WIN)) - gateAt(f) + FAN_WIN * TV_HOME_PER_FAN;
-  if (f < 100) tips.push({ v:winWorth * 7, t:`<b>Win games.</b> Each win is +3% fans, worth about <span class="num">${money(winWorth)}</span> more every home game after it.` });
+  if (f < 100) tips.push({ v:winWorth * 7, t:`<b>Win games.</b> Each win is +${FAN_WIN}% fans, worth about <span class="num">${money(winWorth)}</span> more every home game after it.` });
   // a bigger arena, when the seats are what's holding the gate back
   if (G.fac.arena < 5) {
     const more = gateAt(f, G.ticket, G.fac.arena + 1) - gateAt(f), cost = FAC_COST[G.fac.arena];
