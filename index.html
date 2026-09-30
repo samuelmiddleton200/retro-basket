@@ -2584,14 +2584,7 @@ function beginShot(){
   const d = Math.hypot(e.x - RIM_R.x, e.y - RIM_R.y);
   const dfd = M.th[M.handler];
   const contested = Math.hypot(e.x - dfd.x, e.y - dfd.y) < 3.5 && (dfd.still || 0) > .15;
-  if (d < 6.5) {                                                           // layup: automatic
-    const chance = shotChance(.92, Math.max(d, 3), e.p.sht, contested);
-    const made = Math.random() < chance;
-    M.phase = 'shot'; e.z = 2;
-    launchShot(e, RIM_R, made, 'us', false, d, false);
-    setTimeout(() => { if (M) e.z = 0; }, 300);
-    return;
-  }
+  // every shot uses the meter, layups included (close shots used to be automatic at a fixed 92%)
   M.shooting = { t0:performance.now(), side:'us', contested, d, released:false };
   M.phase = 'shot'; e.z = 1.2;
   showMeter(0);
