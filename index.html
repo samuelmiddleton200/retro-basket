@@ -824,7 +824,7 @@ const perGame = p => p.sal / PAY_GAMES;
 // to sign someone you need the cash to pay him for the rest of this season
 // free agents want a signing bonus in cash up front: $250K at 1 star up to $2.5M at 5 stars, to the nearest $50K
 const signBonus = p => Math.round((.25 + (clamp(starsSmooth(p), 1, 5) - 1) * .5625) * 20) / 20;
-const FAN_WIN = 5, FAN_LOSS = -5, FAN_NEW = 1, NEW_GAMES = 3, FAN_MIN = 15;
+const FAN_WIN = 4, FAN_LOSS = -4, FAN_NEW = 1, NEW_GAMES = 3, FAN_MIN = 15;
 function pbFor(pbox, p){ return pbox[p.id] ||= { fgm:0, fga:0, tpm:0, tpa:0, reb:0, pass:0, to:0 }; }
 // credit one simulated possession to our players: makes to a scorer, misses to a shooter plus a possible rebound
 function simCredit(box, pbox){ creditPoss({ pl:rosterArr(), box, pb:pbox }, null); }
@@ -845,13 +845,16 @@ function applyResult(M, us, them, box, pbox = {}){
   // fans: the result, plus 1% for each newly signed player's first 3 games
   const newBoost = (G.boosts || []).length * FAN_NEW;
   G.boosts = (G.boosts || []).map(n => n - 1).filter(n => n > 0);
-  const fanResult = win ? FAN_WIN : FAN_LOSS;
+  // fans react to the matchup: +4 for a win / -4 for a loss, plus 1% for every half star the other team was better
+  // (minus 1% for every half star worse). A win always gains at least 1%; a loss never gains fans.
+  const upset = Math.round((teamR(M.opp).stars - userRatings().stars) / .5);
+  const fanResult = win ? Math.max(1, FAN_WIN + upset) : Math.min(0, FAN_LOSS + upset);
   const fansBefore = G.fans;
   G.fans = clamp(G.fans + fanResult + newBoost, FAN_MIN, 100);
   for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
   addStats(rosterArr(), box, pbox);                                 // this season, and career
   const top = Object.entries(box).map(([id, pts]) => [rosterArr().find(p => p.id === id), pts]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:tv.total, tvFans:tv.fans, tvStars:tv.stars, tvFanPct:Math.round(fansBefore), cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
+  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:tv.total, tvFans:tv.fans, tvStars:tv.stars, tvFanPct:Math.round(fansBefore), oppSt:teamR(M.opp).stars, ourSt:userRatings().stars, cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
 }
 function userPlaysThisWeek(){ return G.schedule[G.week]?.some(g => g.h === 'U' || g.a === 'U'); }
 function skipByes(){ while (G.phase === 'regular' && G.week < G.schedule.length && !userPlaysThisWeek()) finishWeek(); }
@@ -1246,7 +1249,7 @@ function moneyOutlook(){
   const season = 7 * home + 7 * away, tips = [];
   // win more: every win is +3% fans, which pays at every home game after it
   const winWorth = gateAt(Math.min(100, f + FAN_WIN)) - gateAt(f) + FAN_WIN * TV_HOME_PER_FAN;
-  if (f < 100) tips.push({ v:winWorth * 7, t:`<b>Win games.</b> Each win is +${FAN_WIN}% fans, worth about <span class="num">${money(winWorth)}</span> more every home game after it.` });
+  if (f < 100) tips.push({ v:winWorth * 7, t:`<b>Win games.</b> Each win is about +${FAN_WIN}% fans (more against better teams), worth about <span class="num">${money(winWorth)}</span> more every home game after it.` });
   // a bigger arena, when the seats are what's holding the gate back
   if (G.fac.arena < 5) {
     const more = gateAt(f, G.ticket, G.fac.arena + 1) - gateAt(f), cost = FAC_COST[G.fac.arena];
@@ -1329,7 +1332,7 @@ function postHTML(){
       <div class="stack" style="align-content:start">
         <div class="panel" style="font-size:14px">
           <div class="label" style="margin-bottom:4px">Fans</div>
-          <div class="row between"><span>${L.win ? 'Win' : 'Loss'}</span><span class="${L.fanResult >= 0 ? 'good' : 'bad'} num">${L.fanResult >= 0 ? '+' : ''}${L.fanResult}%</span></div>
+          <div class="row between"><span>${L.win ? 'Win' : 'Loss'}${L.oppSt != null ? ` <span class="muted num">vs ${L.oppSt}★ (you ${L.ourSt}★)</span>` : ''}</span><span class="${L.fanResult >= 0 ? 'good' : 'bad'} num">${L.fanResult >= 0 ? '+' : ''}${L.fanResult}%</span></div>
           ${L.newBoost ? `<div class="row between"><span>New signing${L.newBoost > 1 ? 's' : ''}</span><span class="good num">+${L.newBoost}%</span></div>` : ''}
           <div class="row between" style="border-top:2px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px"><span>Fans now</span><span class="num">${Math.round(L.fansBefore)}% → <b>${Math.round(L.fans)}%</b></span></div>
           <div class="row between"><span>Credits</span><span class="yellow num">+${L.cr}</span></div>
