@@ -2426,14 +2426,14 @@ function inShotZone(e){
   return !!kind && (ROLE_KINDS[e.p.pos] || []).includes(kind);
 }
 const theyreOpen = i => { const e = M.th[i], d = M.our[i]; return Math.hypot(e.x - d.x, e.y - d.y) >= 3.5; };
-const OPP_RELEASE_FLOOR = [0, .5, .55, .6, .6, .65, .7, .7, .75, .8, .85];   // by shooting rating 1-10
+const OPP_RELEASE_FLOOR = [0, .4, .45, .5, .5, .55, .6, .6, .65, .7, .75];   // by shooting rating 1-10
 function oppShoot(h){
   const d = Math.hypot(h.x - RIM_L.x, h.y - RIM_L.y), three = isThree(h, RIM_L);
   const U = userRatings(), O = teamR(M.opp);
   const contested = Math.random() < clamp(.35 + (U.spd - O.spd) * .07, .1, .75);
   M.phase = 'oshot'; h.z = 0; h.shootT = 2;
   // their release is random from a floor up to 100%, the floor set by the shooter's SHOOTING rating (user's table):
-  // 1: 50%, 2: 55%, 3-4: 60%, 5: 65%, 6-7: 70%, 8: 75%, 9: 80%, 10: 85%
+  // 1: 40%, 2: 45%, 3-4: 50%, 5: 55%, 6-7: 60%, 8: 65%, 9: 70%, 10: 75%
   const lo = OPP_RELEASE_FLOOR[clamp(Math.round(h.p.sht), 1, 10)];
   M.oshot = { t0:performance.now(), target:rnd(lo, 1), h, d, three, contested };
 }
