@@ -2429,8 +2429,7 @@ const theyreOpen = i => { const e = M.th[i], d = M.our[i]; return Math.hypot(e.x
 const OPP_RELEASE_FLOOR = [0, .4, .45, .5, .5, .55, .6, .6, .65, .7, .75];   // by shooting rating 1-10
 function oppShoot(h){
   const d = Math.hypot(h.x - RIM_L.x, h.y - RIM_L.y), three = isThree(h, RIM_L);
-  const U = userRatings(), O = teamR(M.opp);
-  const contested = Math.random() < clamp(.35 + (U.spd - O.spd) * .07, .1, .75);
+  const contested = false;                                           // decided at the release: see updateOppMeter
   M.phase = 'oshot'; h.z = 0; h.shootT = 2;
   // their release is random from a floor up to 100%, the floor set by the shooter's SHOOTING rating (user's table):
   // 1: 40%, 2: 45%, 3-4: 50%, 5: 55%, 6-7: 60%, 8: 65%, 9: 70%, 10: 75%
@@ -2458,6 +2457,8 @@ function updateOppMeter(){
   showMeter(Math.min(f, S.target), 'o');
   if (f < S.target && t < METER_PEAK) return;
   const fill = Math.min(f, S.target), perfect = fill >= .95;
+  // same contest rule as our shots: one of our players within 3.5 ft at the release (a missed block also counts)
+  if (M.our.some(d => dist(d, S.h) < 3.5)) S.contested = true;
   const chance = perfect && S.d <= 28 ? 1 : shotChance(fill, S.d, S.h.p.sht, S.contested);
   $('#ometerPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
   M.oshot = null;
