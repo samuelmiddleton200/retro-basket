@@ -136,6 +136,17 @@ td{padding:5px 4px;text-align:right;border-top:2px solid rgba(255,255,255,.15)}
 th:first-child,td:first-child{text-align:left}
 tr.me td{color:var(--yellow)}
 tr.cut td{border-top:2px dashed var(--yellow)}
+.brk{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;height:min(68vh,430px);padding:6px 8px}
+.bcol{display:flex;flex-direction:column;min-width:0}
+.bh{font-family:var(--px);font-size:9px;color:#cfe0ff;text-align:center;white-space:nowrap;margin-bottom:3px}
+.bms{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:3px;min-height:0}
+.bpi .bms{justify-content:space-between}
+.bm{background:rgba(0,0,0,.22);border:2px solid rgba(255,255,255,.22);border-radius:6px;font-size:13px;line-height:1.2;padding:1px 5px}
+.bm div{display:flex;gap:5px;white-space:nowrap;overflow:hidden}
+.bm .sd{opacity:.65;min-width:1.3em;text-align:right}
+.bm .w{font-weight:700}.bm .l{opacity:.4}.bm .me{color:var(--yellow)}.bm .tbd{opacity:.4}
+.bfin .bm{border-color:var(--yellow)}
+.bchamp{text-align:center;font-family:var(--px);font-size:11px}
 
 .sheet-bg{position:fixed;inset:0;background:rgba(5,10,30,.6);z-index:40}
 .sheet{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:41;width:min(460px,calc(100% - 32px));max-height:calc(100% - 24px);overflow:auto;border:3px solid var(--white);border-radius:8px;background:var(--blue-d);padding:14px;box-shadow:0 6px 0 var(--navy)}
@@ -798,7 +809,7 @@ function record(h, a, hs, as){ h.pf += hs; h.pa += as; a.pf += as; a.pa += hs; i
 const byRecord = (x, y) => (y.w - y.l) - (x.w - x.l) || (y.pf - y.pa) - (x.pf - x.pa);
 const standings = () => [...G.league].sort(byRecord);
 const confStandings = conf => G.league.filter(t => t.conf === conf).sort(byRecord);
-const ROUND_NAME = ['Conference semifinal', 'Conference final', 'The Finals'];
+const ROUND_NAME = ['Play-in', 'First round', 'Conference semifinal', 'Conference final', 'The Finals'];
 
 /* ============================ after a game ============================ */
 // Home games: fans fill the arena; every $100 over a $150 ticket keeps about 14% of seats empty.
@@ -818,7 +829,7 @@ const capNow = () => G.cap || CAP_START;
 const trainCost = (p, k) => 2 * Math.pow(2, (p.tr || {})[k] || 0);
 // credits per game: 2 under 20% fans, then +1 for every 20% (20-40% is 3, ... 80-100% is 6)
 const gameCredits = () => 2 + Math.floor(Math.min(G.fans, 99.9) / 20);
-// every game each player is paid 1/17 of his yearly salary (14 regular-season games + up to 3 playoff games)
+// every game each player is paid 1/17 of his yearly salary (14 regular-season games + about 3 playoff games; a play-in team that goes all the way plays 5)
 const PAY_GAMES = 17;
 const perGame = p => p.sal / PAY_GAMES;
 // to sign someone you need the cash to pay him for the rest of this season
@@ -869,45 +880,99 @@ function finishWeek(){
 }
 
 /* ============================ playoffs + offseason ============================ */
+/* NBA format (user spec), every tie a single game. The top 10 in each conference get in:
+     round 0  play-in: 9 v 10 (the winner plays the 1 seed) and 7 v 8 (the winner plays the 2 seed)
+     round 1  first round: 1 v 9/10, 4 v 5, 3 v 6, 2 v 7/8      round 2  conference semis
+     round 3  conference finals                                round 4  the Finals
+   P.games is the round being played (East first, then West), P.hist[round] = [home, away, winner] for the rounds done. */
+const PO_LAST = 4;
 function startPlayoffs(){
-  const E = confStandings('E').slice(0, 4).map(t => t.id), W = confStandings('W').slice(0, 4).map(t => t.id);
+  const E = confStandings('E').slice(0, 10).map(t => t.id), W = confStandings('W').slice(0, 10).map(t => t.id);
   G.phase = 'playoffs';
-  G.playoffs = { round:0, seeds:[...E, ...W], games:[[E[0], E[3]], [E[1], E[2]], [W[0], W[3]], [W[1], W[2]]], champ:null, reached:-1, userOut:false };
+  G.playoffs = { v:2, round:0, E, W, seeds:[...E, ...W], games:[[E[8], E[9]], [E[6], E[7]], [W[8], W[9]], [W[6], W[7]]], hist:[], out:[], champ:null, reached:-1, userOut:false };
   G.playoffs.userOut = !G.playoffs.seeds.includes('U');
+  playoffByes();
 }
 function nextPlayoffGame(){
   const P = G.playoffs;
-  if (P.round > 2 || P.userOut) return null;
+  if (P.round > PO_LAST || P.userOut) return null;
   return P.games.find(m => m.includes('U')) || null;
+}
+// a round we're alive in but don't play: seeds 1-6 sit out the play-in
+function playoffByes(){
+  const P = G.playoffs;
+  while (G.phase === 'playoffs' && !P.userOut && !P.games.some(m => m.includes('U'))) playoffRound(null);
 }
 // play out the current round (our game uses userWinner), then set up the next one
 function playoffRound(userWinner){
   const P = G.playoffs;
   const sim = (h, a) => { const [hs, as] = simScore(teamById(h), teamById(a)); return hs > as ? h : a; };
-  const winners = P.games.map(([h, a]) => (userWinner && (h === 'U' || a === 'U')) ? userWinner : sim(h, a));
-  if (P.games.some(m => m.includes('U'))) { P.reached = P.round; if (!winners.includes('U')) P.userOut = true; }
-  if (P.round === 2) {
-    P.champ = winners[0]; P.round = 3;
-    if (P.reached === 2) {
+  const w = P.games.map(([h, a]) => (userWinner && (h === 'U' || a === 'U')) ? userWinner : sim(h, a));
+  const l = P.games.map(([h, a], i) => w[i] === h ? a : h);
+  P.hist[P.round] = P.games.map(([h, a], i) => [h, a, w[i]]);
+  if (P.games.some(m => m.includes('U'))) P.reached = P.round;
+  P.out.push(...l);
+  if (P.round === PO_LAST) {
+    P.champ = w[0]; P.round++; P.userOut = P.out.includes('U');
+    if (P.reached === PO_LAST) {
       if (P.champ === 'U') { G.cash += 3; G.fin.bonus += 3; G.credits += 10; }
       else { G.cash += 1; G.fin.bonus += 1; }
     }
     startOffseason(); return;
   }
-  P.games = P.round === 0 ? [[winners[0], winners[1]], [winners[2], winners[3]]] : [[winners[0], winners[1]]];
+  if (P.round === 0) P.games = ['E', 'W'].flatMap((c, i) => { const S = P[c]; return [[S[0], w[i * 2]], [S[3], S[4]], [S[2], S[5]], [S[1], w[i * 2 + 1]]]; });
+  else P.games = w.flatMap((x, i) => i % 2 ? [] : [[x, w[i + 1]]]);
+  if (P.round === PO_LAST - 1) P.games[0].sort((x, y) => byRecord(teamById(x), teamById(y)));   // the better record hosts the Finals
+  P.userOut = P.out.includes('U');
   P.round++;
 }
 function resolvePlayoffs(userWinner){
-  if (userWinner) { playoffRound(userWinner); return; }
+  if (userWinner) { playoffRound(userWinner); playoffByes(); return; }
   while (G.phase === 'playoffs') playoffRound(null);
 }
 function finishText(){
   const P = G.playoffs;
   if (P.champ === 'U') return 'Champions';
-  if (P.reached === 2) return 'Lost in the Finals';
-  if (P.reached === 1) return 'Lost in the conference final';
-  if (P.reached === 0) return 'Lost in the conference semis';
+  if (P.reached === 4) return 'Lost in the Finals';
+  if (P.reached === 3) return 'Lost in the conference final';
+  if (P.reached === 2) return 'Lost in the conference semis';
+  if (P.reached === 1) return 'Lost in the first round';
+  if (P.reached === 0) return 'Lost in the play-in';
   return 'Missed the playoffs';
+}
+/* The bracket, East on the left and West on the right, the Finals in the middle. During the regular season it is
+   the bracket as the standings have it today; in the playoffs (and after them) it is the real one with results. */
+const PO_N = [2, 4, 2, 1];                                            // games per conference in rounds 0-3
+function bracketNow(){
+  const P = G.playoffs;
+  if (P && P.v === 2) return P;
+  const E = confStandings('E').slice(0, 10).map(t => t.id), W = confStandings('W').slice(0, 10).map(t => t.id);
+  return { round:0, E, W, games:[[E[8], E[9]], [E[6], E[7]], [W[8], W[9]], [W[6], W[7]]], hist:[], champ:null, projected:true };
+}
+// the games of one round for one conference (ci 0 = East, 1 = West): [home, away, winner]; null = not known yet
+function bracketGames(P, ci, r){
+  const n = PO_N[r], S = ci ? P.W : P.E;
+  if (r < P.round && P.hist[r]) return P.hist[r].slice(ci * n, ci * n + n);
+  if (r === P.round) return P.games.slice(ci * n, ci * n + n).map(([h, a]) => [h, a, null]);
+  if (r === 1) return [[S[0], null, null], [S[3], S[4], null], [S[2], S[5], null], [S[1], null, null]];
+  return Array.from({ length:n }, () => [null, null, null]);
+}
+function bracketHTML(){
+  const P = bracketNow();
+  const seed = id => (P.E.indexOf(id) + 1) || (P.W.indexOf(id) + 1);
+  const line = (id, w, tbd) => id === null || id === undefined ? `<div class="tbd"><span class="sd"></span><span>${tbd}</span></div>`
+    : `<div class="${w ? (w === id ? 'w' : 'l') : ''} ${id === 'U' ? 'me' : ''}"><span class="sd num">${seed(id)}</span><span>${esc(teamById(id).abbr)}</span></div>`;
+  const game = ([h, a, w], tbd = '–') => `<div class="bm">${line(h, w, tbd)}${line(a, w, tbd)}</div>`;
+  const col = (label, games, tbd, cls = '') => `<div class="bcol ${cls}"><div class="bh">${label}</div><div class="bms">${games.map(g => game(g, tbd)).join('')}</div></div>`;
+  // the play-in games sit level with the first-round game their winner goes into: 9 v 10 by the 1 seed, 7 v 8 by the 2 seed
+  const side = ci => [col('Play-in', bracketGames(P, ci, 0), '–', 'bpi'), col('Round 1', bracketGames(P, ci, 1), 'Play-in'),
+    col('Semis', bracketGames(P, ci, 2)), col(ci ? 'West final' : 'East final', bracketGames(P, ci, 3))];
+  const fin = P.round > PO_LAST && P.hist[PO_LAST] ? P.hist[PO_LAST][0] : P.round === PO_LAST ? [...P.games[0], null] : [null, null, null];
+  const champ = P.champ ? teamById(P.champ) : null;
+  const mid = `<div class="bcol bfin"><div class="bh">Finals</div><div class="bms">${game(fin)}${champ ? `<div class="bchamp ${champ.user ? 'yellow' : ''}">🏆 ${esc(champ.abbr)}</div>` : ''}</div></div>`;
+  return `${topBar(P.projected ? 'Projected bracket' : 'Playoff bracket', `<button class="btn icon" data-go="league" aria-label="Back">✕</button>`)}
+    <div class="panel brk">${side(0).join('')}${mid}${side(1).reverse().join('')}</div>
+    <div class="muted fanote" style="font-size:12px;margin-top:6px">${P.projected ? 'If the season ended today. ' : ''}East on the left, West on the right. Play-in: the 9 v 10 winner plays the 1 seed, the 7 v 8 winner plays the 2 seed.</div>`;
 }
 function grow(p, steps){
   let guard = 0;
@@ -1020,7 +1085,8 @@ function render(){
   const ui = $('#ui');
   if (SLOT === null || screen === 'slots') { ui.innerHTML = slotsHTML(); ui.dataset.screen = 'slots'; ui.scrollTop = 0; return; }
   if (!G) { ui.innerHTML = createHTML(); bindCreate(); ui.dataset.screen = 'create'; ui.scrollTop = 0; return; }
-  const f = { kit:kitHTML, roster:rosterHTML, player:playerHTML, league:leagueHTML, office:officeHTML, fa:faHTML, leaders:leadersHTML, post:postHTML, draft:draftHTML }[screen] || hubHTML;
+  if (G.phase === 'playoffs' && G.playoffs && G.playoffs.v !== 2) startPlayoffs();   // a save from the old top-4 format: start the new bracket
+  const f = { kit:kitHTML, roster:rosterHTML, player:playerHTML, league:leagueHTML, bracket:bracketHTML, office:officeHTML, fa:faHTML, leaders:leadersHTML, post:postHTML, draft:draftHTML }[screen] || hubHTML;
   ui.innerHTML = f();
   window.scrollTo(0, 0); ui.scrollTop = 0;                           // the phone app scrolls #ui, not the page
   ui.dataset.screen = G ? screen : 'create';                         // only the stats list may scroll (see the phone CSS)
@@ -1082,7 +1148,7 @@ function hubHTML(){
         : `<div class="row"><button class="btn go grow" data-a="play">Play</button><button class="btn" data-a="sim">Sim</button></div>`}
     </div>`;
   } else if (G.phase === 'playoffs') {
-    left = `<div class="panel stack"><div class="label">Playoffs</div><div>${G.playoffs.seeds.includes('U') ? 'Your season is over.' : 'You missed the top 4 in your conference.'}</div><button class="btn go" data-a="simPlayoffs">Sim the playoffs</button></div>`;
+    left = `<div class="panel stack"><div class="label">Playoffs</div><div>${G.playoffs.seeds.includes('U') ? 'Your season is over.' : 'You missed the top 10 in your conference.'}</div><button class="btn go" data-a="simPlayoffs">Sim the playoffs</button></div>`;
   } else left = offseasonHTML();
   return `${topBar(`${esc(t.city)} ${esc(t.name)}`)}
     <div class="hub">
@@ -1188,10 +1254,10 @@ function faHTML(){
 }
 function leagueHTML(){
   const table = conf => `<div class="panel" style="overflow-x:auto"><div class="label" style="margin-bottom:4px">${conf === 'E' ? 'East' : 'West'}</div><table><thead><tr><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Team</th></tr></thead><tbody>
-    ${confStandings(conf).map((t, i) => `<tr class="${t.user ? 'me' : ''} ${i === 4 ? 'cut' : ''}"><td>${i + 1}. ${esc(t.abbr)} ${esc(t.name)}</td><td class="num">${t.w}</td><td class="num">${t.l}</td><td class="num">${t.pf - t.pa > 0 ? '+' : ''}${t.pf - t.pa}</td><td>${starsHTML(teamR(t).stars)}</td></tr>`).join('')}
+    ${confStandings(conf).map((t, i) => `<tr class="${t.user ? 'me' : ''} ${i === 6 || i === 10 ? 'cut' : ''}"><td>${i + 1}. ${esc(t.abbr)} ${esc(t.name)}</td><td class="num">${t.w}</td><td class="num">${t.l}</td><td class="num">${t.pf - t.pa > 0 ? '+' : ''}${t.pf - t.pa}</td><td>${starsHTML(teamR(t).stars)}</td></tr>`).join('')}
     </tbody></table></div>`;
-  return `${topBar('Standings', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
-    <div class="hub">${table('E')}${table('W')}</div><div class="muted fanote" style="font-size:12px;margin-top:6px">Top 4 in each conference make the playoffs.</div>`;
+  return `${topBar('Standings', `<button class="btn" data-go="bracket">Bracket</button><button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
+    <div class="hub">${table('E')}${table('W')}</div><div class="muted fanote" style="font-size:12px;margin-top:6px">Top 6 in each conference make the playoffs; 7th to 10th go to the play-in.</div>`;
 }
 // every player on a team this season, ranked by any stat; per-game stats and percentages from p.s
 const LCOLS = [
@@ -1205,32 +1271,40 @@ const LCOLS = [
   { k:'tov', h:'TO', v:o => o.gp ? (o.to || 0) / o.gp : null, f:v => v.toFixed(1) },
   { k:'pts', h:'PTS', v:o => o.pts || 0, f:v => v },
 ];
-const lead = { k:'ppg', asc:false, pos:'', team:'' };
+const lead = { k:'ppg', asc:false, pos:'', team:'' };                // team '*' = one row per team, its players' stats added up
+const LSUM = ['pts', 'fgm', 'fga', 'tpm', 'tpa', 'reb', 'pass', 'to'];
+function teamTotals(t){
+  const o = { gp:t.w + t.l };
+  teamPlayers(t).forEach(p => LSUM.forEach(k => o[k] = (o[k] || 0) + ((p.s || {})[k] || 0)));
+  return o;
+}
 function leadersHTML(){
   const col = LCOLS.find(c => c.k === lead.k) || LCOLS[1];
-  let rows = G.league.flatMap(t => teamPlayers(t).map(p => ({ p, t, o:p.s || {} })));
-  if (lead.pos) rows = rows.filter(r => r.p.pos === lead.pos);
-  if (lead.team) rows = rows.filter(r => r.t.abbr === lead.team);
+  const byTeam = lead.team === '*';
+  let rows = byTeam ? G.league.map(t => ({ t, o:teamTotals(t) })) : G.league.flatMap(t => teamPlayers(t).map(p => ({ p, t, o:p.s || {} })));
+  if (lead.pos && !byTeam) rows = rows.filter(r => r.p.pos === lead.pos);
+  if (lead.team && !byTeam) rows = rows.filter(r => r.t.abbr === lead.team);
   rows.forEach(r => r.v = col.v(r.o));
   // players with nothing to rank on (no attempts, no games) always sit at the bottom
-  rows.sort((a, b) => (a.v === null) - (b.v === null) || (lead.asc ? a.v - b.v : b.v - a.v) || pAvg(b.p) - pAvg(a.p));
+  rows.sort((a, b) => (a.v === null) - (b.v === null) || (lead.asc ? a.v - b.v : b.v - a.v) || (byTeam ? b.t.w - a.t.w : pAvg(b.p) - pAvg(a.p)));
   const teams = [...G.league].sort((a, b) => a.abbr.localeCompare(b.abbr));
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
   return `${topBar('League leaders', `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
     <div class="lfilt">
-      <select id="lPos" aria-label="Position">${opt('', 'All positions', lead.pos)}${POS.map(p => opt(p, p, lead.pos)).join('')}</select>
-      <select id="lTeam" aria-label="Team">${opt('', 'All teams', lead.team)}${teams.map(t => opt(t.abbr, `${t.abbr} ${t.name}${t.user ? ' (you)' : ''}`, lead.team)).join('')}</select>
+      <select id="lPos" aria-label="Position" ${byTeam ? 'disabled' : ''}>${opt('', 'All positions', lead.pos)}${POS.map(p => opt(p, p, lead.pos)).join('')}</select>
+      <select id="lTeam" aria-label="Team">${opt('', 'All teams', lead.team)}${opt('*', 'Team totals', lead.team)}${teams.map(t => opt(t.abbr, `${t.abbr} ${t.name}${t.user ? ' (you)' : ''}`, lead.team)).join('')}</select>
       <span class="muted grow" style="font-size:12px;align-self:center">Season ${G.season} · tap a column to rank by it, tap again to flip</span>
     </div>
     <div class="panel" style="overflow-x:auto;padding:6px 8px">
-      <table class="lt"><thead><tr><th>#</th><th style="text-align:left">Player</th><th style="text-align:left">Team</th><th>★</th>
+      <table class="lt"><thead><tr><th>#</th><th style="text-align:left">${byTeam ? 'Team' : 'Player'}</th><th style="text-align:left">${byTeam ? 'W-L' : 'Team'}</th><th>★</th>
         ${LCOLS.map(c => `<th><button data-a="lsort" data-k="${c.k}" class="${c.k === col.k ? 'on' : ''}">${c.h}${c.k === col.k ? (lead.asc ? '▲' : '▼') : ''}</button></th>`).join('')}</tr></thead>
       <tbody>${rows.map((r, i) => `<tr class="${r.t.user ? 'me' : ''} ${r.o.gp ? '' : 'zero'}"><td class="num">${i + 1}</td>
-        <td class="nm2">${r.p.pos} ${esc(r.p.fn)} ${esc(r.p.ln)}</td><td class="tm">${esc(r.t.abbr)}</td><td class="num">${pStars(r.p)}</td>
+        ${byTeam ? `<td class="nm2">${esc(r.t.abbr)} ${esc(r.t.name)}</td><td class="tm">${r.t.w}-${r.t.l}</td><td class="num">${teamR(r.t).stars}</td>`
+          : `<td class="nm2">${r.p.pos} ${esc(r.p.fn)} ${esc(r.p.ln)}</td><td class="tm">${esc(r.t.abbr)}</td><td class="num">${pStars(r.p)}</td>`}
         ${LCOLS.map(c => { const v = c.v(r.o); return `<td class="num ${c.k === col.k ? 'sorted' : ''}">${v === null ? '–' : c.f(v)}</td>`; }).join('')}</tr>`).join('')}
       </tbody></table>
     </div>
-    <div class="muted" style="font-size:12px;margin-top:6px">${rows.length} players. PPG, 3PM, RPG, PASS and TO are per game.</div>`;
+    <div class="muted" style="font-size:12px;margin-top:6px">${rows.length} ${byTeam ? 'teams, each the total of its current players' : 'players'}. PPG, 3PM, RPG, PASS and TO are per game.</div>`;
 }
 function gateText(){
   const H = homeGate();
@@ -2110,8 +2184,8 @@ function shotSpot(kind){
   if (kind === 'mid') return around(rnd(-1.25, 1.25), rnd(10, 15));
   return around(rnd(-1.3, 1.3), rnd(2.5, 5));                         // close
 }
-function roleSpot(pos, mates){
-  const kind = pick(ROLE_KINDS[pos] || ['mid']), gap = kind === 'close' ? 4 : 7;   // spread out from teammates' spots
+function roleSpot(pos, mates, kinds = ROLE_KINDS[pos]){
+  const kind = pick(kinds || ['mid']), gap = kind === 'close' ? 4 : 7;   // spread out from teammates' spots
   let best = null;
   for (let t = 0; t < 12; t++) {
     const p = shotSpot(kind);
@@ -2126,10 +2200,17 @@ function relocate(e, team, i){
   e.tx = s.x; e.ty = s.y; e.spot = -1; e.cover = 0;
   const [a, b] = ROLE_WAIT[e.p.pos] || [1, 2]; e.wait = rnd(a, b);
 }
+/* A little game sense for the other team: down by more than 5 they hunt threes and take safer shots.
+   Their SG sets up behind the line and their SF mostly does too; the ball goes to an open three-point shooter first;
+   and a ball handler who is covered, or inside the arc with a three open, gives it up (up to 2 extra passes) instead of shooting. */
+const TRAIL_BY = 5;
+const TRAIL_KINDS = { PG:['three'], SG:['three'], SF:['three', 'three', 'mid'], PF:['mid'], C:['close'] };
+const oppTrailing = () => M.us - M.them > TRAIL_BY;
+const oppKinds = pos => (oppTrailing() ? TRAIL_KINDS : ROLE_KINDS)[pos];
 // the same roles for the other team, mirrored to their end of the floor
 function relocateThem(e, i){
   const mates = M.th.filter((m, k) => k !== i).map(m => ({ tx:94 - m.tx, ty:m.ty }));
-  const s = roleSpot(e.p.pos, mates);
+  const s = roleSpot(e.p.pos, mates, oppKinds(e.p.pos));
   e.tx = 94 - s.x; e.ty = s.y;
   const [a, b] = ROLE_WAIT[e.p.pos] || [1, 2]; e.wait = rnd(a, b);
 }
@@ -2408,14 +2489,18 @@ function updateOpp(dt){
       const pass = j => { const to = M.th[j]; M.phase = 'opass'; M.st.them.pass++;
         M.ball.fl = { kind:'pass', from:{ x:h.x, y:h.y, z:4 }, to:{ x:to.x, y:to.y, z:4 }, t:0, dur:clamp(dist(h, to) / 40, .15, .6), side:'them', target:j };
         M.ball.holder = null; };
-      if (P.passes > 0) { P.passes--; pass(good.length ? pick(good) : pick(others)); return; }
+      const smart = oppTrailing(), open3 = good.filter(k => isThree(M.th[k], RIM_L));
+      const best = () => pick(smart && open3.length ? open3 : good);                  // trailing: find the open three first
+      if (P.passes > 0) { P.passes--; pass(good.length ? best() : pick(others)); return; }
+      // trailing: kick it out to an open three, and don't force a covered shot (while there's time and someone to give it to)
+      if (smart && (P.extra || 0) < 2 && (P.age || 0) < 6 && (open3.length && !isThree(h, RIM_L) || good.length && !theyreOpen(hi))) { P.extra = (P.extra || 0) + 1; pass(best()); return; }
       // a player only shoots from his position's zone (PG threes, SG three/mid, SF mid/close, PF mid, C close)
       if (inShotZone(h) || P.age > 8) {                              // ...unless the possession has stalled for 8 s
         if (h.moving || (h.still || 0) < .3) { h.tx = h.x; h.ty = h.y; return; }   // set the feet first: no shots on the run
         oppShoot(h); return;
       }
-      if (good.length) { pass(pick(good)); return; }                 // someone's open in his zone: get it to him
-      const s = roleSpot(h.p.pos, M.th.filter((m, k) => k !== hi).map(m => ({ tx:94 - m.tx, ty:m.ty })));
+      if (good.length) { pass(best()); return; }                     // someone's open in his zone: get it to him
+      const s = roleSpot(h.p.pos, M.th.filter((m, k) => k !== hi).map(m => ({ tx:94 - m.tx, ty:m.ty })), oppKinds(h.p.pos));
       h.tx = 94 - s.x; h.ty = s.y; P.t = .6;                          // nobody is: take it to my own zone
     }
   }
@@ -2423,7 +2508,7 @@ function updateOpp(dt){
 // is this player of theirs standing where his position is allowed to shoot from? (their basket is RIM_L)
 function inShotZone(e){
   const d = Math.hypot(e.x - RIM_L.x, e.y - RIM_L.y), kind = isThree(e, RIM_L) ? 'three' : d <= 6 ? 'close' : d >= 9 && d <= 16.5 ? 'mid' : null;
-  return !!kind && (ROLE_KINDS[e.p.pos] || []).includes(kind);
+  return !!kind && (oppKinds(e.p.pos) || []).includes(kind);
 }
 const theyreOpen = i => { const e = M.th[i], d = M.our[i]; return Math.hypot(e.x - d.x, e.y - d.y) >= 3.5; };
 const OPP_RELEASE_FLOOR = [0, .4, .45, .5, .5, .55, .6, .6, .65, .7, .75];   // by shooting rating 1-10
