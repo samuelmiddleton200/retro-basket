@@ -634,7 +634,8 @@ const meterFill = t => { const u = t / METER_PEAK; return u <= 1 ? Math.pow(clam
      2/10: 62% / 52% / 37% / 22%     5/10: 67% / 57% / 43% / 27%     10/10: 78% / 66% / 52% / 34%
    An 80% release keeps 93% of that up close, 92% at mid-range and 89% from three (1-star: 57 / 48 / 32).
    Between 80 and 90% it climbs steadily; below 80% it drops as ((meter - 25%) / 55%)^2 (v11: 75% keeps .83, 70% .67, 60% .40, 50% .21, 25% or less 0).
-   Past 30 ft it falls off fast (x e^(-0.12 per foot)). Contested = 75% of open. 95%+ is PERFECT (handled by the caller). */
+   Past 30 ft it falls off fast (x e^(-0.12 per foot)). Contested = 75% of open. 97%+ is PERFECT (handled by the caller; it was 95%+ until 2026-10-05). */
+const PERFECT_AT = .97;                                               // meter fill that counts as a PERFECT release (user)
 // columns: 5 ft (close), 15 ft (mid-range), 20 ft, 30 ft (user, v13: every v12 value dropped 8 points, since PERFECT releases pushed real results well above the table)
 const SHOT_AT_90 = [[1, .60, .50, .35, .21], [2, .62, .52, .37, .22], [5, .67, .57, .426, .265], [9.5, .77, .65, .511, .333], [10, .78, .66, .52, .34]];
 const SHOT_D = [5, 15, 20, 30];
@@ -654,7 +655,7 @@ function shotBase(d, sht){
 const Q80 = d => 1 - .1 * lerpTable([[5, .71], [15, .83], [23.75, 1.11]], d, 1);   // .93 close, .92 mid, .89 three
 function releaseF(m, d = 15){
   const q80 = Q80(d);
-  if (m >= .9) return 1 + (Math.min(m, .95) - .9) * .4;
+  if (m >= .9) return 1 + (Math.min(m, PERFECT_AT) - .9) * .4;
   if (m >= .8) return q80 + (m - .8) / .1 * (1 - q80);
   return q80 * Math.pow(Math.max(0, (m - .25) / .55), 2);             // below 80%: 75% keeps .83, 70% .67, 60% .40, 50% .21, 40% .07, 25% 0
 }
@@ -2694,12 +2695,12 @@ function updateOppMeter(){
   const S = M.oshot, t = (performance.now() - S.t0) / 1000, f = meterFill(t);
   showMeter(Math.min(f, S.target), 'o');
   if (f < S.target && t < METER_PEAK) return;
-  const fill = Math.min(f, S.target), perfect = fill >= .95;
+  const fill = Math.min(f, S.target), perfect = fill >= PERFECT_AT;
   // same contest rule as our shots: one of our players within 3.5 ft at the release (a missed block also counts)
   if (M.our.some(d => dist(d, S.h) < 3.5)) S.contested = true;
   const chance = perfect && S.d <= 28 ? 1 : shotChance(fill, S.d, S.h.p.sht, S.contested);
   showMeter(perfect ? 1 : Math.round(fill * 100) / 100, 'o');       // the bar matches the number it stops on
-  $('#ometerPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
+  $('#ometerPct').textContent = perfect ? 'PERFECT' : Math.min(Math.round(fill * 100), PERFECT_AT * 100 - 1) + '%';   // never shows 97% without PERFECT
   M.oshot = null;
   launchShot(S.h, RIM_L, Math.random() < chance, 'them', S.three, S.d, false);
   const id = M.id;
@@ -2910,7 +2911,7 @@ function release(auto){
   const t = (performance.now() - S.t0) / 1000;
   const e = M.our[M.handler];
   const fill = auto ? 0 : meterFill(t);
-  const perfect = !auto && meterFill(t) >= .95;
+  const perfect = !auto && meterFill(t) >= PERFECT_AT;
   const three = isThree(e, RIM_R);
   let chance = perfect ? (S.d <= 28 ? 1 : ourChance(1, S.d, e.p.sht, S.contested)) : ourChance(fill, S.d, e.p.sht, S.contested);
   if (auto) chance = 0;
@@ -2921,7 +2922,7 @@ function release(auto){
   // draw the bar at the release itself: it used to stay where the last frame left it, up to 8% short near the top
   // (the bar climbs about 8% a frame there), so a 91% release looked like 80%. PERFECT fills it completely.
   showMeter(perfect ? 1 : Math.round(fill * 100) / 100);
-  $('#meterPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
+  $('#meterPct').textContent = perfect ? 'PERFECT' : Math.min(Math.round(fill * 100), PERFECT_AT * 100 - 1) + '%';   // never shows 97% without PERFECT
   const id = M.id;
   setTimeout(() => { if (M && M.id === id) { hideMeter(); M.shooting = null; e.z = 0; } }, 700);
 }
