@@ -543,9 +543,9 @@ const tvDeal = home => {
      amenities     "Food & Parking": every fan in the building spends more, so it pays at any crowd
      marketing     wins bring more fans, losses cost fewer
      recruiting    players ask for less: each level drops the bottom of the asking range 10%, the top stays (user spec) */
-const foodPer = (lv = G.fac.amenities) => 18 + 35 * (lv - 1);          // $ of food per fan: 18 / 53 / 88 / 123 / 158 / 193
-const parkPer = (lv = G.fac.amenities) => 40 + 40 * (lv - 1);          // $ per car: 40 / 80 / 120 / 160 / 200 / 240
-const fanSpend = (lv = G.fac.amenities) => foodPer(lv) + parkPer(lv) / FANS_PER_CAR;   // food + parking per fan: 34 / 85 / 136 / 187 / 238 / 289
+const foodPer = (lv = G.fac.amenities) => 18 + 10 * (lv - 1);          // $ of food per fan: 18 / 28 / 38 / 48 / 58
+const parkPer = (lv = G.fac.amenities) => 40 + 12.5 * (lv - 1);        // $ per car: 40 / 52.50 / 65 / 77.50 / 90
+const fanSpend = (lv = G.fac.amenities) => foodPer(lv) + parkPer(lv) / FANS_PER_CAR;   // food + parking per fan: 34 / 49 / 64 / 79 / 94 (user, 2026-10-05: +$51 a level made a 14-0 season worth $62M)
 const MKT_WIN = .15, MKT_LOSS = .1;                                    // per Marketing level above 1: wins +15% fans, losses -10%
 const ASK_LO = .85, ASK_HI = 1.15, ASK_DROP = .9;                      // asking price: 85-115% of the star rate; Recruiting lowers the 85% end by 10% a level
 const DRAFT_ERR = 1;                                                   // draft ratings are shown within ±1 (scouting is gone)
@@ -559,7 +559,7 @@ const FAC = {
 // what each upgrade costs, $M (the user's prices, 2026-10-05): four upgrades each, so levels run 1-5
 const FAC_PRICE = {
   arena:[1.5, 3, 4.5, 6],
-  amenities:[1, 2, 3.5, 5],
+  amenities:[.5, 1, 1.5, 3],
   marketing:[1, 2, 3.5, 5],
   recruiting:[1, 2, 3.5, 5],
 };
