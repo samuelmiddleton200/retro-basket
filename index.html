@@ -662,6 +662,10 @@ function shotChance(meter, d, sht, contested){
   const open = Math.min(.98, shotBase(d, sht) * releaseF(meter, d));
   return contested ? open * .75 : open;
 }
+// our shots only: 5 points off every make chance (user, 2026-10-05: we shot 67% / 58% from three, other teams 45-55% / 35-45%).
+// The other team keeps the table as it is; PERFECT still always goes in from 28 ft or closer.
+const US_SHOT_PENALTY = .05;
+const ourChance = (meter, d, sht, contested) => Math.max(0, shotChance(meter, d, sht, contested) - US_SHOT_PENALTY);
 const distM = d => shotBase(d, 5) / shotBase(0, 5);                   // relative distance factor (for the PDF note)
 const fumbleChance = (hnd, open) => lerp(.1, .02, (hnd - 1) / 9) * (open ? .5 : 1);
 
@@ -2908,7 +2912,7 @@ function release(auto){
   const fill = auto ? 0 : meterFill(t);
   const perfect = !auto && meterFill(t) >= .95;
   const three = isThree(e, RIM_R);
-  let chance = perfect ? (S.d <= 28 ? 1 : shotChance(1, S.d, e.p.sht, S.contested)) : shotChance(fill, S.d, e.p.sht, S.contested);
+  let chance = perfect ? (S.d <= 28 ? 1 : ourChance(1, S.d, e.p.sht, S.contested)) : ourChance(fill, S.d, e.p.sht, S.contested);
   if (auto) chance = 0;
   const made = Math.random() < chance;
   e.p.fga = (e.p.fga || 0) + 1;
