@@ -236,7 +236,7 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .tip{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-family:var(--px);font-size:10px;text-align:center;color:#fff;text-shadow:0 2px 0 #000;pointer-events:none;max-width:60%}
 
 /* money outlook (front office) */
-.fac-list{display:grid;gap:10px}
+.fac-list{display:grid;gap:10px}.fshort{display:none}
 .outlook .tipline{font-size:12px;line-height:1.3;margin-top:5px;padding-left:10px;position:relative}
 .outlook .tipline::before{content:'';position:absolute;left:0;top:5px;width:5px;height:5px;border-radius:50%;background:var(--yellow)}
 /* save slots */
@@ -319,9 +319,10 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
   /* front office: the long money breakdown hides, facilities go 2 x 2, the outlook tightens */
   .fo-detail{display:none}
   .fac-list{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  .fac-list .panel{flex-direction:column;align-items:stretch;gap:4px}
+  .fac-list .panel{flex-direction:column;align-items:stretch;gap:2px;padding-block:5px}
   .fac-list .panel .muted{display:none}                                   /* the upgrade descriptions stay on the computer version */
   .fac-list .panel .px{font-size:11px !important}
+  .fac-list .fshort{display:block;font-size:11px;line-height:1.1;color:#cfe0ff}                /* phones: one short line saying what the level gives */
   .outlook .tipline{font-size:10.5px;line-height:1.25;margin-top:3px}
   /* in the game: a thumb-sized SHOOT button instead of the big desktop one */
   :root{--sb:76px;--mw:10px;--mh:100px}                               /* phone: small button, slim meter above it */
@@ -488,11 +489,22 @@ const tvDeal = home => {
   const fans = f * (home ? TV_HOME_PER_FAN : TV_AWAY_PER_FAN), stars = star * (home ? 1 : TV_AWAY_STARS);
   return { fans, stars, total:fans + stars };
 };
+/* Front office upgrades (user, 2026-10-05: only the Arena felt useful, so the other three were replaced):
+     arena         more seats: pays when the building sells out
+     amenities     "Food & Parking": every fan in the building spends more, so it pays at any crowd
+     marketing     wins bring more fans, losses cost fewer
+     conditioning  "Training & Medical": the old Training Center and Conditioning in one, plus slower decline with age */
+const foodPer = (lv = G.fac.amenities) => 18 + 35 * (lv - 1);          // $ of food per fan: 18 / 53 / 88 / 123 / 158
+const parkPer = (lv = G.fac.amenities) => 40 + 40 * (lv - 1);          // $ per car: 40 / 80 / 120 / 160 / 200
+const fanSpend = (lv = G.fac.amenities) => foodPer(lv) + parkPer(lv) / FANS_PER_CAR;   // food + parking per fan: 34 / 85 / 136 / 187 / 238
+const MKT_WIN = .15, MKT_LOSS = .1;                                    // per Marketing level above 1: wins +15% fans, losses -10%
+const TIRE_PER_LV = .15, GROW_PER_LV = .25, AGE_SAVE_PER_LV = .15;     // Training & Medical, per level above 1
+const DRAFT_ERR = 1;                                                   // draft ratings are shown within ±1 (scouting is gone)
 const FAC = {
-  training:{ name:'Training Center', desc:lv => `Young players grow ${Math.round(75 + lv * 25)}% as fast each offseason.` },
-  conditioning:{ name:'Conditioning', desc:lv => `Players tire ${lv * 10 - 10}% slower during games.` },
-  arena:{ name:'Arena', desc:lv => `${seats(lv).toLocaleString()} seats.` },
-  scouting:{ name:'Scouting', desc:lv => `See draft ratings within ±${Math.max(0, 3 - lv + 1)}.` },
+  arena:{ name:'Arena', short:lv => seats(lv).toLocaleString() + ' seats', desc:lv => `${seats(lv).toLocaleString()} seats.` },
+  amenities:{ name:'Food + Parking', short:lv => '$' + Math.round(fanSpend(lv)) + ' a fan', desc:lv => `Each fan spends $${Math.round(fanSpend(lv))} on food and parking${lv < 5 ? ` (next level $${Math.round(fanSpend(lv + 1))})` : ''}.` },
+  marketing:{ name:'Marketing', short:lv => '+' + Math.round((lv - 1) * MKT_WIN * 100) + '% fans per win', desc:lv => lv > 1 ? `Wins bring ${Math.round((lv - 1) * MKT_WIN * 100)}% more fans, losses cost ${Math.round((lv - 1) * MKT_LOSS * 100)}% fewer.` : 'Wins bring more fans, losses cost fewer.' },
+  conditioning:{ name:'Training + Medical', short:lv => 'tire ' + Math.round((lv - 1) * TIRE_PER_LV * 100) + '% slower', desc:lv => `Players tire ${Math.round((lv - 1) * TIRE_PER_LV * 100)}% slower, the young grow ${Math.round((lv - 1) * GROW_PER_LV * 100)}% faster, veterans decline slower.` },
 };
 const FAC_COST = [0, 1.5, 3, 5, 8];
 const seats = lv => 6000 + 3000 * (lv - 1);
@@ -666,7 +678,7 @@ function newGame(pickAbbr){
   }
   const used = new Set(); for (const pos of POS) { const p = roster[pos]; while (used.has(p.num)) p.num = ri(0, 55); used.add(p.num); }
   G = { v:2, season:1, week:0, phase:'regular', cash:2, credits:4, fans:25, boosts:[], gpSeason:0, cap:CAP_START, ticket:TICKET_FAIR, speed:10,
-    fac:{ training:1, conditioning:1, arena:1, scouting:1 }, roster, league, schedule:confSchedule(league), results:[],
+    fac:{ arena:1, amenities:1, marketing:1, conditioning:1 }, roster, league, schedule:confSchedule(league), results:[],
     fa:released, pool, history:[], playoffs:null, off:null, last:null, kit:{ j:'home', s:'home' }, fin:{ gate:0, tv:0, bonus:0, spend:0, salaries:0 } };
   refillFA(FA_SIZE);
 }
@@ -698,6 +710,9 @@ function migrate(g){
   g.boosts ||= []; g.gpSeason ??= 0; g.fans = Math.max(g.fans, 15);
   if (g.ticket < TICKET_MIN) g.ticket = TICKET_FAIR;                               // tickets moved to $100-800
   g.cap ??= CAP_MAX;                                                               // older saves keep the full cap
+  if (g.fac && g.fac.amenities == null) {                                          // 2026-10-05: Training Center → Food & Parking, Scouting → Marketing; levels carry over
+    const o = g.fac; g.fac = { arena:o.arena || 1, amenities:o.training || 1, marketing:o.scouting || 1, conditioning:Math.max(o.conditioning || 1, o.training || 1) };
+  }
   return g;
 }
 function uniqueNum(p){
@@ -823,12 +838,12 @@ const ROUND_NAME = ['Play-in', 'First round', 'Conference semifinal', 'Conferenc
 
 /* ============================ after a game ============================ */
 // Home games: fans fill the arena; every $100 over a $150 ticket keeps about 14% of seats empty.
-// Each fan in the building also buys $18 of food, and every 2.5 fans park one car at $40.
-const TICKET_MIN = 100, TICKET_MAX = 800, TICKET_FAIR = 150, FOOD_PER_FAN = 18, FANS_PER_CAR = 2.5, PARKING = 40;
+// Each fan in the building also buys food, and every 2.5 fans park one car; how much they spend is the Food & Parking level.
+const TICKET_MIN = 100, TICKET_MAX = 800, TICKET_FAIR = 150, FANS_PER_CAR = 2.5;
 const attendance = () => clamp(G.fans / 100 - (G.ticket - TICKET_FAIR) / 700, 0, 1);   // 50% fans = 50% full at a fair price; overpricing can empty it
 function homeGate(){
   const att = attendance(), crowd = Math.round(seats(G.fac.arena) * att);
-  const tickets = crowd * G.ticket / 1e6, food = crowd * FOOD_PER_FAN / 1e6, parking = Math.round(crowd / FANS_PER_CAR) * PARKING / 1e6;
+  const tickets = crowd * G.ticket / 1e6, food = crowd * foodPer() / 1e6, parking = Math.round(crowd / FANS_PER_CAR) * parkPer() / 1e6;
   return { att, crowd, tickets, food, parking, total:tickets + food + parking };
 }
 // salary cap: $20M to start, +$10M per 25 credits, up to $70M
@@ -869,7 +884,8 @@ function applyResult(M, us, them, box, pbox = {}){
   // fans react to the matchup: +4 for a win / -4 for a loss, plus 1% for every half star the other team was better
   // (minus 1% for every half star worse). Every result moves fans at least 2%, and a loss never costs more than 7%.
   const upset = Math.round((teamR(M.opp).stars - userRatings().stars) / .5);
-  const fanResult = win ? Math.max(2, FAN_WIN + upset) : clamp(FAN_LOSS + upset, -7, -2);
+  const mk = G.fac.marketing - 1;                                   // Marketing: wins bring more fans, losses cost fewer
+  const fanResult = Math.round((win ? Math.max(2, FAN_WIN + upset) : clamp(FAN_LOSS + upset, -7, -2)) * (win ? 1 + MKT_WIN * mk : 1 - MKT_LOSS * mk));
   const fansBefore = G.fans;
   G.fans = clamp(G.fans + fanResult + newBoost, FAN_MIN, 100);
   for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
@@ -998,12 +1014,13 @@ function startOffseason(){
   const champ = teamById(G.playoffs.champ);
   G.history.unshift({ season:G.season, w:t.w, l:t.l, finish, champ:`${champ.city} ${champ.name}` });
   const changes = [], retired = [];
-  const tf = 1 + .25 * (G.fac.training - 1);
+  const tf = 1 + GROW_PER_LV * (G.fac.conditioning - 1), ageSave = AGE_SAVE_PER_LV * (G.fac.conditioning - 1);
   for (const pos of POS) {
     const p = G.roster[pos]; if (!p) continue;
     const before = pStars(p);
     let s = p.age <= 21 ? ri(2, 4) : p.age <= 24 ? ri(1, 3) : p.age <= 28 ? ri(0, 1) : p.age <= 31 ? ri(-2, 0) : ri(-3, -1);
     if (s > 0) s = Math.round(s * tf);
+    for (let k = s; k < 0; k++) if (Math.random() < ageSave) s++;              // each point of age decline can be saved by the medical staff
     grow(p, s); p.age++; p.gp = p.pts = p.fga = p.fgm = 0; p.s = {};
     if (p.age >= 34 && Math.random() < (p.age - 33) * .3) { retired.push(`${p.fn} ${p.ln} (${pos}, age ${p.age})`); G.roster[pos] = null; continue; }
     if (pStars(p) !== before) changes.push({ name:`${p.fn} ${p.ln}`, pos, from:before, to:pStars(p) });
@@ -1016,7 +1033,7 @@ function startOffseason(){
   });
   const order = standings().reverse().map(x => x.id);
   const prospects = [];
-  POS.forEach(pos => { for (let i = 0; i < 2; i++) { const p = makePlayer(pos, rnd(2.5, 5.5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1.5, 4.5)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * Math.max(0, 3 - G.fac.scouting + 1) , 1, 10), o), {}); prospects.push(p); } });
+  POS.forEach(pos => { for (let i = 0; i < 2; i++) { const p = makePlayer(pos, rnd(2.5, 5.5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1.5, 4.5)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * DRAFT_ERR, 1, 10), o), {}); prospects.push(p); } });
   G.phase = 'offseason';
   G.off = { step:'summary', finish, champ:`${champ.city} ${champ.name}`, record:`${t.w}-${t.l}`, changes, retired, order, prospects, picks:2, round:1, fin:{ ...G.fin } };
   save();
@@ -1244,7 +1261,7 @@ function playerHTML(){
 }
 function draftHTML(){
   const O = G.off;
-  const err = Math.max(0, 3 - G.fac.scouting + 1);
+  const err = DRAFT_ERR;
   return `${topBar(`<span class="st">★★★</span> Draft round ${O.round} <span class="st">★★★</span>`, `<button class="btn icon" data-go="hub" aria-label="Back">✕</button>`)}
     <div class="cards">${O.prospects.map(p => { const shown = { ...p, ...p.scout }; return card(p, { attr:`data-prospect="${p.id}"`, stars:pStars(shown) }); }).join('')}</div>
     ${capBar(`<button class="btn" data-go="roster">Roster</button><div class="box" style="text-align:center"><div class="label">Picks</div><div class="num">${O.picks}</div></div><button class="btn go icon" data-a="draftDone" aria-label="Done">➜</button>`)}
@@ -1322,7 +1339,7 @@ function gateText(){
 }
 /* ---- money outlook: an estimate of a home and an away game's net, and the move worth the most right now ----
    Uses the same formulas as a real game (gate + TV - salaries). Suggestions are ranked by dollars per season. */
-const PER_FAN_SPEND = (t = G.ticket) => (t + FOOD_PER_FAN + PARKING / FANS_PER_CAR) / 1e6;   // what one fan in the seats is worth
+const PER_FAN_SPEND = (t = G.ticket) => (t + fanSpend()) / 1e6;   // what one fan in the seats is worth
 function gateAt(fansPct, ticket = G.ticket, level = G.fac.arena){
   const att = clamp(fansPct / 100 - (ticket - TICKET_FAIR) / 700, 0, 1), crowd = seats(level) * att;
   return crowd * PER_FAN_SPEND(ticket);
@@ -1338,6 +1355,12 @@ function moneyOutlook(){
   if (G.fac.arena < 5) {
     const more = gateAt(f, G.ticket, G.fac.arena + 1) - gateAt(f), cost = FAC_COST[G.fac.arena];
     if (more > 0) tips.push({ v:more * 7 - cost / 2, t:`<b>Upgrade the arena</b> (<span class="num">${money(cost)}</span>): about <span class="num">+${money(more)}</span> a home game, paid back in ${Math.ceil(cost / more)} home games.` });
+  }
+  // better food and parking: pays at any crowd, most when the building is busy
+  if (G.fac.amenities < 5) {
+    const crowd = seats(G.fac.arena) * clamp(f / 100 - (G.ticket - TICKET_FAIR) / 700, 0, 1), cost = FAC_COST[G.fac.amenities];
+    const more = crowd * (fanSpend(G.fac.amenities + 1) - fanSpend()) / 1e6;
+    if (more > 0) tips.push({ v:more * 7 - cost / 2, t:`<b>Upgrade Food + Parking</b> (<span class="num">${money(cost)}</span>): about <span class="num">+${money(more)}</span> a home game, paid back in ${Math.ceil(cost / more)} home games.` });
   }
   // the ticket price that earns the most at these fans
   let best = G.ticket, bestV = gateAt(f);
@@ -1381,7 +1404,7 @@ function officeHTML(){
           ${cap < CAP_MAX ? `<button class="btn sm go" data-a="capUp" ${G.credits < CAP_COST ? 'disabled' : ''}>${CAP_COST} CR</button>` : '<span class="px yellow">MAX</span>'}</div>
       </div>
       <div class="stack">${outlookHTML()}<div class="fac-list">${Object.entries(FAC).map(([k, F]) => { const lv = G.fac[k], c = FAC_COST[lv];
-        return `<div class="panel row"><div class="grow"><div class="px" style="font-size:13px">${F.name} <span class="yellow">LV${lv}</span></div><div class="muted" style="font-size:12px">${F.desc(lv)}</div></div>${lv < 5 ? `<button class="btn sm go" data-up="${k}" ${G.cash < c ? 'disabled' : ''}>${money(c)}</button>` : '<span class="px yellow">MAX</span>'}</div>`; }).join('')}</div></div>
+        return `<div class="panel row"><div class="grow"><div class="px" style="font-size:13px">${F.name} <span class="yellow">LV${lv}</span></div><div class="fshort num">${F.short(lv)}</div><div class="muted" style="font-size:12px">${F.desc(lv)}</div></div>${lv < 5 ? `<button class="btn sm go" data-up="${k}" ${G.cash < c ? 'disabled' : ''}>${money(c)}</button>` : '<span class="px yellow">MAX</span>'}</div>`; }).join('')}</div></div>
     </div>`;
 }
 // earnings minus costs for the game just played
@@ -1575,7 +1598,7 @@ function aiDraft(){
   const O = G.off;
   const n = Math.min(O.prospects.length, ri(3, 5));
   for (let i = 0; i < n; i++) { const best = [...O.prospects].sort((a, b) => b.pot - a.pot)[ri(0, 1)] || O.prospects[0]; O.prospects = O.prospects.filter(x => x !== best); }
-  while (O.prospects.length < 10) { const pos = pick(POS); const p = makePlayer(pos, rnd(2.5, 5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1, 4)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * Math.max(0, 3 - G.fac.scouting + 1), 1, 10), o), {}); O.prospects.push(p); }
+  while (O.prospects.length < 10) { const pos = pick(POS); const p = makePlayer(pos, rnd(2.5, 5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1, 4)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * DRAFT_ERR, 1, 10), o), {}); O.prospects.push(p); }
 }
 function speedSheet(inGame){
   openSheet(`<div class="px">Game speed</div><div class="muted" style="font-size:13px">How fast the game clock runs. At 10x a 15:00 quarter takes 90 seconds.</div>
@@ -2376,7 +2399,7 @@ const BALL_SLOW = .9;                                                 // whoever
 // Stamina, both teams: over each quarter a player loses 15% speed at 1/10 stamina down to 5% at 10/10,
 // steadily with the game clock. Every quarter break is a full recovery (user), so it never snowballs.
 // (Your Conditioning upgrade trims your players' loss by 10% a level.)
-const quarterLoss = (e, ours) => (15 - (clamp(e.p.sta, 1, 10) - 1) * 10 / 9) / 100 * (ours ? 1 - .1 * (G.fac.conditioning - 1) : 1);
+const quarterLoss = (e, ours) => (15 - (clamp(e.p.sta, 1, 10) - 1) * 10 / 9) / 100 * (ours ? 1 - TIRE_PER_LV * (G.fac.conditioning - 1) : 1);
 function tireAll(){
   const len = M.q > 4 ? 300 : 900, done = 1 - clamp(M.clock / len, 0, 1);
   M.our.forEach(e => e.fat = (e.fat0 || 0) + quarterLoss(e, true) * done);
