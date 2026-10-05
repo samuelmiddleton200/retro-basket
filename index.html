@@ -2340,6 +2340,16 @@ function relocate(e, team, i){
    Their SG sets up behind the line and their SF mostly does too; the ball goes to an open three-point shooter first;
    and a ball handler who is covered, or inside the arc with a three open, gives it up (up to 2 extra passes) instead of shooting. */
 const TRAIL_BY = 5;
+/* They know who their shooters are (user, 2026-10-05): each possession is run for one man, picked by where he ranks
+   in SHOOTING on their five: the best gets about 32% of the plays, then 22 / 17 / 15, and the worst about 14%.
+   The last pass of the play goes to him and he takes the shot from his own zone. */
+const SHOT_SHARE = [.32, .22, .17, .15, .14];
+function oppShooter(){
+  const order = M.th.map((e, i) => ({ i, s:e.p.sht + Math.random() * .01 })).sort((a, b) => b.s - a.s);   // ties in a random order
+  let x = Math.random();
+  for (let k = 0; k < order.length; k++) { x -= SHOT_SHARE[k] ?? 0; if (x <= 0) return order[k].i; }
+  return order[0].i;
+}
 const TRAIL_KINDS = { PG:['three'], SG:['three'], SF:['three', 'three', 'mid'], PF:['mid'], C:['close'] };
 const oppTrailing = () => M.us - M.them > TRAIL_BY;
 const oppKinds = pos => (oppTrailing() ? TRAIL_KINDS : ROLE_KINDS)[pos];
@@ -2369,7 +2379,7 @@ function startTheirs(fromX, fromY, inbound){
   give('them', h);
   M.th[h].tx = THEIR_SPOTS[0].x; M.th[h].ty = THEIR_SPOTS[0].y;
   M.th.forEach((e, i) => { if (i !== h) relocateThem(e, i); });   // the rest run to their position's spots
-  M.oppPlan = { passes:ri(1, 3), t:0, age:0, state:'bring', stealRoll:Math.random() < .07 + (userRatings().spd - teamR(M.opp).hnd) * .01 };
+  M.oppPlan = { passes:ri(1, 3), star:oppShooter(), t:0, age:0, state:'bring', stealRoll:Math.random() < .07 + (userRatings().spd - teamR(M.opp).hnd) * .01 };
   tip('');
 }
 function nearestIdx(arr, pt){ let b = 0, bd = 1e9; arr.forEach((e, i) => { const d = dist(e, pt); if (d < bd) { bd = d; b = i; } }); return b; }
@@ -2627,7 +2637,10 @@ function updateOpp(dt){
         M.ball.holder = null; };
       const smart = oppTrailing(), open3 = good.filter(k => isThree(M.th[k], RIM_L));
       const best = () => pick(smart && open3.length ? open3 : good);                  // trailing: find the open three first
-      if (P.passes > 0) { P.passes--; pass(good.length ? best() : pick(others)); return; }
+      if (P.passes > 0) {
+        if (P.passes === 1 && P.star != null) { P.passes = 0; if (P.star !== hi) { pass(P.star); return; } }   // the last pass finds the man the play is for
+        else { P.passes--; pass(good.length ? best() : pick(others)); return; }
+      }
       // trailing: kick it out to an open three, and don't force a covered shot (while there's time and someone to give it to)
       if (smart && (P.extra || 0) < 2 && (P.age || 0) < 6 && (open3.length && !isThree(h, RIM_L) || good.length && !theyreOpen(hi))) { P.extra = (P.extra || 0) + 1; pass(best()); return; }
       // a player only shoots from his position's zone (PG threes, SG three/mid, SF mid/close, PF mid, C close)
@@ -2635,7 +2648,7 @@ function updateOpp(dt){
         if (h.moving || (h.still || 0) < .3) { h.tx = h.x; h.ty = h.y; return; }   // set the feet first: no shots on the run
         oppShoot(h); return;
       }
-      if (good.length) { pass(best()); return; }                     // someone's open in his zone: get it to him
+      if (good.length && hi !== P.star) { pass(best()); return; }    // someone's open in his zone: get it to him (the play's shooter keeps it and gets to his spot)
       const s = roleSpot(h.p.pos, M.th.filter((m, k) => k !== hi).map(m => ({ tx:94 - m.tx, ty:m.ty })), oppKinds(h.p.pos));
       h.tx = 94 - s.x; h.ty = s.y; P.t = .6;                          // nobody is: take it to my own zone
     }
