@@ -538,13 +538,13 @@ const METER_K = Math.log(.5) / Math.log(.75);
 const METER_PEAK = .5;
 const meterFill = t => { const u = t / METER_PEAK; return u <= 1 ? Math.pow(clamp(u, 0, 1), METER_K) : Math.pow(clamp(2 - u, 0, 1), METER_K); };
 /* Shot math v9, built from the user's targets. SHOT_AT_90: the open make chance with a 90% release, by shooting
-   rating, at 5 ft (close), 15 ft (mid-range), 20 ft and 30 ft (straight lines in between, so the 3-pt line is ~39-53%):
-     2/10: 70% / 60% / 45% / 30%     5/10: 75% / 65% / 51% / 35%     10/10: 86% / 74% / 60% / 42%
-   An 80% release keeps 93% of that up close, 92% at mid-range and 89% from three (1-star: 65 / 55 / 40).
+   rating, at 5 ft (close), 15 ft (mid-range), 20 ft and 30 ft (straight lines in between, so the 3-pt line is ~31-45%):
+     2/10: 62% / 52% / 37% / 22%     5/10: 67% / 57% / 43% / 27%     10/10: 78% / 66% / 52% / 34%
+   An 80% release keeps 93% of that up close, 92% at mid-range and 89% from three (1-star: 57 / 48 / 32).
    Between 80 and 90% it climbs steadily; below 80% it drops as ((meter - 25%) / 55%)^2 (v11: 75% keeps .83, 70% .67, 60% .40, 50% .21, 25% or less 0).
    Past 30 ft it falls off fast (x e^(-0.12 per foot)). Contested = 75% of open. 95%+ is PERFECT (handled by the caller). */
-// columns: 5 ft (close), 15 ft (mid-range), 20 ft, 30 ft (user, v12: 20 ft 45%/60% and 30 ft 30%/42% for 2/10 and 10/10)
-const SHOT_AT_90 = [[1, .68, .58, .43, .29], [2, .70, .60, .45, .30], [5, .75, .65, .506, .345], [9.5, .85, .73, .591, .413], [10, .86, .74, .60, .42]];
+// columns: 5 ft (close), 15 ft (mid-range), 20 ft, 30 ft (user, v13: every v12 value dropped 8 points, since PERFECT releases pushed real results well above the table)
+const SHOT_AT_90 = [[1, .60, .50, .35, .21], [2, .62, .52, .37, .22], [5, .67, .57, .426, .265], [9.5, .77, .65, .511, .333], [10, .78, .66, .52, .34]];
 const SHOT_D = [5, 15, 20, 30];
 const lerpTable = (rows, x, col) => {                                  // straight-line between the table rows
   if (x <= rows[0][0]) return rows[0][col];
