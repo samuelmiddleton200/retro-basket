@@ -494,19 +494,19 @@ const tvDeal = home => {
      amenities     "Food & Parking": every fan in the building spends more, so it pays at any crowd
      marketing     wins bring more fans, losses cost fewer
      conditioning  "Training & Medical": the old Training Center and Conditioning in one, plus slower decline with age */
-const foodPer = (lv = G.fac.amenities) => 18 + 35 * (lv - 1);          // $ of food per fan: 18 / 53 / 88 / 123 / 158
-const parkPer = (lv = G.fac.amenities) => 40 + 40 * (lv - 1);          // $ per car: 40 / 80 / 120 / 160 / 200
-const fanSpend = (lv = G.fac.amenities) => foodPer(lv) + parkPer(lv) / FANS_PER_CAR;   // food + parking per fan: 34 / 85 / 136 / 187 / 238
+const foodPer = (lv = G.fac.amenities) => 18 + 35 * (lv - 1);          // $ of food per fan: 18 / 53 / 88 / 123 / 158 / 193
+const parkPer = (lv = G.fac.amenities) => 40 + 40 * (lv - 1);          // $ per car: 40 / 80 / 120 / 160 / 200 / 240
+const fanSpend = (lv = G.fac.amenities) => foodPer(lv) + parkPer(lv) / FANS_PER_CAR;   // food + parking per fan: 34 / 85 / 136 / 187 / 238 / 289
 const MKT_WIN = .15, MKT_LOSS = .1;                                    // per Marketing level above 1: wins +15% fans, losses -10%
 const TIRE_PER_LV = .15, GROW_PER_LV = .25, AGE_SAVE_PER_LV = .15;     // Training & Medical, per level above 1
 const DRAFT_ERR = 1;                                                   // draft ratings are shown within ±1 (scouting is gone)
 const FAC = {
   arena:{ name:'Arena', short:lv => seats(lv).toLocaleString() + ' seats', desc:lv => `${seats(lv).toLocaleString()} seats.` },
-  amenities:{ name:'Food + Parking', short:lv => '$' + Math.round(fanSpend(lv)) + ' a fan', desc:lv => `Each fan spends $${Math.round(fanSpend(lv))} on food and parking${lv < 5 ? ` (next level $${Math.round(fanSpend(lv + 1))})` : ''}.` },
+  amenities:{ name:'Food + Parking', short:lv => '$' + Math.round(fanSpend(lv)) + ' a fan', desc:lv => `Each fan spends $${Math.round(fanSpend(lv))} on food and parking${lv < FAC_MAX ? ` (next level $${Math.round(fanSpend(lv + 1))})` : ''}.` },
   marketing:{ name:'Marketing', short:lv => '+' + Math.round((lv - 1) * MKT_WIN * 100) + '% fans per win', desc:lv => lv > 1 ? `Wins bring ${Math.round((lv - 1) * MKT_WIN * 100)}% more fans, losses cost ${Math.round((lv - 1) * MKT_LOSS * 100)}% fewer.` : 'Wins bring more fans, losses cost fewer.' },
   conditioning:{ name:'Training + Medical', short:lv => 'tire ' + Math.round((lv - 1) * TIRE_PER_LV * 100) + '% slower', desc:lv => `Players tire ${Math.round((lv - 1) * TIRE_PER_LV * 100)}% slower, the young grow ${Math.round((lv - 1) * GROW_PER_LV * 100)}% faster, veterans decline slower.` },
 };
-const FAC_COST = [0, 1.5, 3, 5, 8];
+const FAC_COST = [0, 1.5, 3.5, 7.5, 15, 25], FAC_MAX = FAC_COST.length;   // user prices (2026-10-05): five upgrades, so levels run 1-6
 const seats = lv => 6000 + 3000 * (lv - 1);
 
 /* ============================ players ============================ */
@@ -1352,12 +1352,12 @@ function moneyOutlook(){
   const winWorth = gateAt(Math.min(100, f + FAN_WIN)) - gateAt(f) + FAN_WIN * TV_HOME_PER_FAN;
   if (f < 100) tips.push({ v:winWorth * 7, t:`<b>Win games.</b> Each win is about +${FAN_WIN}% fans (more against better teams), worth about <span class="num">${money(winWorth)}</span> more every home game after it.` });
   // a bigger arena, when the seats are what's holding the gate back
-  if (G.fac.arena < 5) {
+  if (G.fac.arena < FAC_MAX) {
     const more = gateAt(f, G.ticket, G.fac.arena + 1) - gateAt(f), cost = FAC_COST[G.fac.arena];
     if (more > 0) tips.push({ v:more * 7 - cost / 2, t:`<b>Upgrade the arena</b> (<span class="num">${money(cost)}</span>): about <span class="num">+${money(more)}</span> a home game, paid back in ${Math.ceil(cost / more)} home games.` });
   }
   // better food and parking: pays at any crowd, most when the building is busy
-  if (G.fac.amenities < 5) {
+  if (G.fac.amenities < FAC_MAX) {
     const crowd = seats(G.fac.arena) * clamp(f / 100 - (G.ticket - TICKET_FAIR) / 700, 0, 1), cost = FAC_COST[G.fac.amenities];
     const more = crowd * (fanSpend(G.fac.amenities + 1) - fanSpend()) / 1e6;
     if (more > 0) tips.push({ v:more * 7 - cost / 2, t:`<b>Upgrade Food + Parking</b> (<span class="num">${money(cost)}</span>): about <span class="num">+${money(more)}</span> a home game, paid back in ${Math.ceil(cost / more)} home games.` });
@@ -1404,7 +1404,7 @@ function officeHTML(){
           ${cap < CAP_MAX ? `<button class="btn sm go" data-a="capUp" ${G.credits < CAP_COST ? 'disabled' : ''}>${CAP_COST} CR</button>` : '<span class="px yellow">MAX</span>'}</div>
       </div>
       <div class="stack">${outlookHTML()}<div class="fac-list">${Object.entries(FAC).map(([k, F]) => { const lv = G.fac[k], c = FAC_COST[lv];
-        return `<div class="panel row"><div class="grow"><div class="px" style="font-size:13px">${F.name} <span class="yellow">LV${lv}</span></div><div class="fshort num">${F.short(lv)}</div><div class="muted" style="font-size:12px">${F.desc(lv)}</div></div>${lv < 5 ? `<button class="btn sm go" data-up="${k}" ${G.cash < c ? 'disabled' : ''}>${money(c)}</button>` : '<span class="px yellow">MAX</span>'}</div>`; }).join('')}</div></div>
+        return `<div class="panel row"><div class="grow"><div class="px" style="font-size:13px">${F.name} <span class="yellow">LV${lv}</span></div><div class="fshort num">${F.short(lv)}</div><div class="muted" style="font-size:12px">${F.desc(lv)}</div></div>${lv < FAC_MAX ? `<button class="btn sm go" data-up="${k}" ${G.cash < c ? 'disabled' : ''}>${money(c)}</button>` : '<span class="px yellow">MAX</span>'}</div>`; }).join('')}</div></div>
     </div>`;
 }
 // earnings minus costs for the game just played
