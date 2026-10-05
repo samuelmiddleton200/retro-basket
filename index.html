@@ -173,6 +173,15 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .sb .tm.r .poss.on{clip-path:polygon(0 0,100% 50%,0 100%)}
 .sb .mid{display:grid;place-items:center;align-content:center;padding:2px 12px;border-inline:3px solid #fff;min-width:78px;background:#0b1433;line-height:1.05}
 .sb .q{font-size:11px;color:var(--yellow)}
+.sb .rd{font-size:8px;color:#fff;letter-spacing:1px;white-space:nowrap}.sb .rd[hidden]{display:none}
+.champ{position:relative;display:grid;justify-items:center;align-content:center;gap:8px;text-align:center;min-height:min(72vh,440px);overflow:hidden}
+.champ .cup{font-size:76px;line-height:1;filter:drop-shadow(0 5px 0 rgba(0,0,0,.4));animation:cupin .7s cubic-bezier(.2,1.5,.4,1) both}
+.champ h2{font-family:var(--px);font-size:30px;margin:0;color:var(--yellow);text-shadow:0 3px 0 #000}
+.champ .cf{position:absolute;top:-12px;width:7px;height:11px;animation:cfall linear infinite;pointer-events:none}
+.champ > :not(.cf){position:relative;z-index:1}
+@keyframes cfall{to{transform:translateY(480px) rotate(540deg)}}
+@keyframes cupin{from{transform:scale(.2) rotate(-20deg);opacity:0}}
+@media (max-height:500px){.champ{min-height:calc(100vh - 78px);gap:4px}.champ .cup{font-size:54px}.champ h2{font-size:22px}}
 .sb .clk{font-size:19px;color:#fff}
 .shotbox{margin-top:-1px;border:3px solid #fff;border-top:0;border-radius:0 0 6px 6px;background:#1a0d0d;color:#ff5a3c;font-family:var(--px);font-weight:700;font-size:15px;padding:0 10px 2px;min-width:44px;text-align:center;text-shadow:0 0 6px rgba(255,90,60,.6);box-shadow:0 3px 0 rgba(0,0,0,.5)}
 .shotbox:empty{display:none}
@@ -332,7 +341,7 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
     <canvas id="court" width="640" height="360"></canvas>
     <div class="hud"><div class="sb">
       <div class="tm" id="tmU"><span class="ab" id="aU"></span><span class="sc num" id="sU">0</span><span class="poss" id="pU"></span></div>
-      <div class="mid"><span class="q" id="qq">1ST</span><span class="clk num" id="qc">15:00</span></div>
+      <div class="mid"><span class="rd" id="rdn" hidden></span><span class="q" id="qq">1ST</span><span class="clk num" id="qc">15:00</span></div>
       <div class="tm r" id="tmO"><span class="poss" id="pO"></span><span class="sc num" id="sO">0</span><span class="ab" id="aO"></span></div>
     </div><div class="shotbox num" id="shc">24</div></div>
     <button class="btn sm gbtn" id="pauseBtn" aria-label="Pause">II</button>
@@ -809,6 +818,7 @@ function record(h, a, hs, as){ h.pf += hs; h.pa += as; a.pf += as; a.pa += hs; i
 const byRecord = (x, y) => (y.w - y.l) - (x.w - x.l) || (y.pf - y.pa) - (x.pf - x.pa);
 const standings = () => [...G.league].sort(byRecord);
 const confStandings = conf => G.league.filter(t => t.conf === conf).sort(byRecord);
+const ROUND_SHORT = { 'Play-in':'PLAY-IN', 'First round':'ROUND 1', 'Conference semifinal':'SEMIS', 'Conference final':'CONF FINAL', 'The Finals':'FINALS' };
 const ROUND_NAME = ['Play-in', 'First round', 'Conference semifinal', 'Conference final', 'The Finals'];
 
 /* ============================ after a game ============================ */
@@ -865,7 +875,7 @@ function applyResult(M, us, them, box, pbox = {}){
   for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
   addStats(rosterArr(), box, pbox);                                 // this season, and career
   const top = Object.entries(box).map(([id, pts]) => [rosterArr().find(p => p.id === id), pts]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:tv.total, tvFans:tv.fans, tvStars:tv.stars, tvFanPct:Math.round(fansBefore), oppSt:teamR(M.opp).stars, ourSt:userRatings().stars, cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
+  G.last = { opp:M.opp.id, home:M.home, us, them, win, gate, tv:tv.total, tvFans:tv.fans, tvStars:tv.stars, tvFanPct:Math.round(fansBefore), oppSt:teamR(M.opp).stars, ourSt:userRatings().stars, cr, pay, salaries, fanResult, newBoost, fansBefore, fans:G.fans, cash:G.cash, att, crowd:H.crowd, food:H.food, parking:H.parking, kind:M.kind, round:M.kind === 'playoffs' ? M.label : '', top:top.map(([p, pts]) => ({ name:`${p.fn[0]}. ${p.ln}`, pos:p.pos, pts })) };
 }
 function userPlaysThisWeek(){ return G.schedule[G.week]?.some(g => g.h === 'U' || g.a === 'U'); }
 function skipByes(){ while (G.phase === 'regular' && G.week < G.schedule.length && !userPlaysThisWeek()) finishWeek(); }
@@ -1395,7 +1405,8 @@ function postMoney(L){
 function postHTML(){
   const L = G.last; if (!L) return hubHTML();
   const o = teamById(L.opp), t = userTeam();
-  return `${topBar(L.win ? '<span class="good">Win</span>' : '<span class="bad">Loss</span>')}
+  if (L.kind === 'playoffs' && G.playoffs && G.playoffs.champ === 'U' && !L.celebrated) return champHTML(L, t, o);
+  return `${topBar((L.win ? '<span class="good">Win</span>' : '<span class="bad">Loss</span>') + (L.round ? ` · ${esc(L.round)}` : ''))}
     <div class="post3">
       <div class="panel"><div class="vs">
         <div class="t">${badge(t)}<div class="px num" style="font-size:28px">${L.us}</div></div><div class="px muted">FINAL</div>
@@ -1413,6 +1424,20 @@ function postHTML(){
         </div>
         <button class="btn go" data-go="hub">Continue</button>
       </div>
+    </div>`;
+}
+
+// we won the title: trophy, confetti in the team's colors, then on to the usual post-game screen
+function champHTML(L, t, o){
+  const cols = [t.c1, t.c2, '#ffd23f', '#ffffff'], titles = G.history.filter(h => h.finish === 'Champions').length;
+  const confetti = Array.from({ length:46 }, (_, i) => `<i class="cf" style="left:${(i * 37 % 100)}%;background:${cols[i % 4]};animation-duration:${(2.2 + (i * 13 % 20) / 10).toFixed(1)}s;animation-delay:-${(i * 7 % 30) / 10}s"></i>`).join('');
+  return `${topBar('Season ' + (G.history[0] ? G.history[0].season : G.season))}
+    <div class="panel champ">${confetti}
+      <div class="cup">🏆</div><h2>CHAMPIONS</h2>
+      <div class="px" style="font-size:15px">${esc(t.city)} ${esc(t.name)}</div>
+      <div class="num">Finals: ${esc(t.abbr)} ${L.us} · ${esc(o.abbr)} ${L.them}${titles > 1 ? ` · title number ${titles}` : ''}</div>
+      <div class="muted" style="font-size:12px">A banner goes up in your arena.</div>
+      <button class="btn go" data-a="champOk">Continue</button>
     </div>`;
 }
 
@@ -1510,6 +1535,7 @@ $('#ui').addEventListener('click', ev => {
   else if (act === 'tipoff') { G.kit = { ...kitSel.us }; save(); screen = 'hub'; startMatch(); }
   else if (act === 'resume') { if (G.live && G.live.ks) kitSel = G.live.ks; screen = 'hub'; startMatch(); }
   else if (act === 'sim') { if (!savedLive()) simMatch(); }         // a saved game has to be finished, not simmed over
+  else if (act === 'champOk') { G.last.celebrated = true; save(); render(); }
   else if (act === 'simPlayoffs') { resolvePlayoffs(null); if (G.phase === 'playoffs') resolvePlayoffs(null); save(); render(); }
   else if (act === 'settings') speedSheet();
   else if (act === 'capUp') { if (G.credits >= CAP_COST && capNow() < CAP_MAX) { G.credits -= CAP_COST; G.cap = Math.min(CAP_MAX, capNow() + CAP_STEP); save(); render(); toast(`Salary cap is now ${money(G.cap)}.`); } }
@@ -1653,8 +1679,10 @@ const FONT = {
   '0':['###','#.#','#.#','#.#','###'],'1':['.#.','##.','.#.','.#.','###'],'2':['###','..#','###','#..','###'],'3':['###','..#','###','..#','###'],'4':['#.#','#.#','###','..#','..#'],
   '5':['###','#..','###','..#','###'],'6':['###','#..','###','#.#','###'],'7':['###','..#','.#.','.#.','.#.'],'8':['###','#.#','###','#.#','###'],'9':['###','#.#','###','..#','###']
 };
+const pxText = (c, str, x, y, color) => { c.fillStyle = color; [...str].forEach((ch, i) => (FONT[ch] || FONT[' ']).forEach((r, yy) => [...r].forEach((p, xx) => { if (p === '#') c.fillRect(x + i * 4 + xx, y + yy, 1, 1); }))); };
 // t: home team, away: visitors, fill: share of seats taken, awayLeft: the visitors' bench is on the left half
-function buildCourt(t, away, fill = .7, awayLeft = true){
+// round: the playoff round's name ('' in the regular season), titles: seasons the home team won it all (ours only)
+function buildCourt(t, away, fill = .7, awayLeft = true, round = '', titles = []){
   const c = courtCv.getContext('2d');
   c.fillStyle = '#16204a'; c.fillRect(0, 0, WORLD_W, CH);
   const mid = X0 + 47 * PXF;
@@ -1672,10 +1700,22 @@ function buildCourt(t, away, fill = .7, awayLeft = true){
       const sh = shirt(x); c.fillStyle = sh; c.fillRect(x, y + 3, 5, 3); c.fillStyle = shade(sh, .3); c.fillRect(x, y + 3, 5, 1);   // lit shoulders so dark team colors still read
       c.fillStyle = pick(SKIN); c.fillRect(x + 1, y, 3, 3);
       if (Math.random() < .5) { c.fillStyle = pick(HAIR); c.fillRect(x + 1, y, 3, 1); }
+      if (round && sh !== (away && away.c1) && Math.random() < .3) { c.fillStyle = '#ffffff'; c.fillRect(x + 4, y - 1, 2, 2); }   // playoffs: home fans wave rally towels
     }
   }
+  // a banner in the rafters for every title we have won (home games)
+  titles.slice(0, 8).forEach((season, i) => {
+    const bx = Math.round(mid) + 70 + i * 14, n = String(season).slice(-2);
+    c.fillStyle = '#ffd23f'; c.fillRect(bx, 0, 11, 14); c.fillStyle = t.c1; c.fillRect(bx + 1, 0, 9, 13);
+    c.fillStyle = '#ffd23f'; c.fillRect(bx + 3, 1, 5, 3); c.fillRect(bx + 5, 4, 1, 1); c.fillRect(bx + 4, 5, 3, 1);   // a little trophy
+    pxText(c, n, bx + (n.length > 1 ? 2 : 4), 7, '#ffffff');
+  });
   c.fillStyle = t.c1; c.fillRect(0, Y0 - 10, WORLD_W, 7);
-  c.fillStyle = t.c2; for (let x = 6; x < WORLD_W; x += 40) c.fillRect(x, Y0 - 8, 20, 3);
+  if (round) {                                                       // playoffs: the courtside boards carry the round's name in gold
+    c.fillStyle = '#0b1433'; c.fillRect(0, Y0 - 10, WORLD_W, 7);
+    const word = round.toUpperCase().replace(/[^A-Z0-9 ]/g, ' '), step = word.length * 4 + 22;
+    for (let x = 8; x < WORLD_W; x += step) { pxText(c, word, x, Y0 - 9, '#ffd23f'); c.fillStyle = t.c1; c.fillRect(x + step - 15, Y0 - 8, 8, 3); }
+  } else { c.fillStyle = t.c2; for (let x = 6; x < WORLD_W; x += 40) c.fillRect(x, Y0 - 8, 20, 3); }
   c.fillStyle = '#0b1433'; c.fillRect(0, Y0 - 3, WORLD_W, 3);
   // floor
   for (let x = 0; x < WORLD_W; x += 3) { c.fillStyle = (x / 3) % 2 ? '#d49a5c' : '#cf9456'; c.fillRect(x, Y0, 3, CH - Y0); }
@@ -1713,7 +1753,7 @@ function buildCourt(t, away, fill = .7, awayLeft = true){
       const fx = (qx + .5 - cx0) / PXF, fy = (py + .5 - cy0) / PYF;
       if (fx * fx + fy * fy <= CC_R * CC_R) c.fillRect(qx, py, 1, 1);
     }
-  c.fillStyle = '#ffffff'; for (let a = 0; a < Math.PI * 2; a += .004) c.fillRect(Math.round(sx(47 + Math.cos(a) * CC_R) + cam), Math.round(sy(25 + Math.sin(a) * CC_R)), 1, 1);
+  c.fillStyle = round ? '#ffd23f' : '#ffffff'; for (let a = 0; a < Math.PI * 2; a += .004) c.fillRect(Math.round(sx(47 + Math.cos(a) * CC_R) + cam), Math.round(sy(25 + Math.sin(a) * CC_R)), 1, 1);
   const word = t.name.toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 14);
   const k = word.length * 12 - 3 <= 96 ? 3 : word.length * 8 - 2 <= 104 ? 2 : 1;   // as big as the name fits in the circle
   const w = (word.length * 4 - 1) * k, x0 = Math.round(ccx - w / 2), y0 = Math.round(ccy - 2.5 * k);
@@ -2083,8 +2123,10 @@ function startMatch(){
     ball:{ x:20, y:25, z:3, holder:null, fl:null }, handler:0, shooting:null, startQ:'us' };
   // the stands fill to this game's attendance: yours from fans and ticket price, theirs from their record
   const oppGp = ng.opp.w + ng.opp.l, oppFill = clamp(.55 + (oppGp ? ng.opp.w / oppGp : .5) * .4, .4, .98);
-  M.fill = ng.home ? attendance() : oppFill;
-  buildCourt(ng.home ? t : ng.opp, ng.home ? ng.opp : t, M.fill, ng.home);   // their bench is always on the left, ours on the right
+  const po = ng.kind === 'playoffs';                                // playoff atmosphere (user, 2026-10-05): the look only, the gate still follows the fans
+  M.fill = po ? 1 : ng.home ? attendance() : oppFill;
+  $('#rdn').textContent = po ? ROUND_SHORT[ng.label] || ng.label : ''; $('#rdn').hidden = !po;
+  buildCourt(ng.home ? t : ng.opp, ng.home ? ng.opp : t, M.fill, ng.home, po ? ng.label : '', ng.home ? G.history.filter(h => h.finish === 'Champions').map(h => h.season).reverse() : []);   // their bench is always on the left, ours on the right
   G.coach ||= makeCoach();
   const benchGuys = () => Array.from({ length:4 }, () => giveLook({ id:uid(), num:ri(0, 55) }));
   // our bench sits on our half (we attack the right basket), our coach at its right end, nearest our goal; theirs mirrors on the left
@@ -2104,7 +2146,7 @@ function startMatch(){
     banner('RESUMED', `${qText(L.q)} · ${clockText(L.clock)} · ${L.poss === 'them' ? M.opp.name : t.name} ball`, 1300);
   } else {
     startOurs(10, 25, true);
-    banner('TIP OFF', `${t.name} ball`, 1000);
+    banner(po ? ng.label.toUpperCase() : 'TIP OFF', `${t.name} ball`, po ? 1800 : 1000);
   }
   lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
 }
