@@ -506,7 +506,18 @@ const FAC = {
   marketing:{ name:'Marketing', short:lv => '+' + Math.round((lv - 1) * MKT_WIN * 100) + '% fans per win', desc:lv => lv > 1 ? `Wins bring ${Math.round((lv - 1) * MKT_WIN * 100)}% more fans, losses cost ${Math.round((lv - 1) * MKT_LOSS * 100)}% fewer.` : 'Wins bring more fans, losses cost fewer.' },
   conditioning:{ name:'Training + Medical', short:lv => 'tire ' + Math.round((lv - 1) * TIRE_PER_LV * 100) + '% slower', desc:lv => `Players tire ${Math.round((lv - 1) * TIRE_PER_LV * 100)}% slower, the young grow ${Math.round((lv - 1) * GROW_PER_LV * 100)}% faster, veterans decline slower.` },
 };
-const FAC_COST = [0, 1.5, 3.5, 7.5, 12.5, 20], FAC_MAX = FAC_COST.length;   // user prices (2026-10-05): five upgrades, so levels run 1-6
+/* What each upgrade costs, $M (user, 2026-10-05: 1.5 / 3.5 / 7.5 / 12.5 / 20 is the top price list; the others are priced
+   by what they earn, so they are cheaper). Five upgrades each, so levels run 1-6. Roughly, per season at mid fans:
+   an Arena level earns the most, Food + Parking about two thirds of that, Marketing about half (and nothing once fans
+   are at 100%), and the fourth slot earns no money at all. */
+const FAC_PRICE = {
+  arena:[1.5, 3.5, 7.5, 12.5, 20],
+  amenities:[1, 2.5, 5, 9, 14],
+  marketing:[.75, 2, 4, 7, 11],
+  conditioning:[.5, 1.5, 3, 5, 8],
+};
+const FAC_MAX = 6;
+const facCost = (k, lv = G.fac[k]) => FAC_PRICE[k][lv - 1];
 const seats = lv => 6000 + 3000 * (lv - 1);
 
 /* ============================ players ============================ */
@@ -1353,12 +1364,12 @@ function moneyOutlook(){
   if (f < 100) tips.push({ v:winWorth * 7, t:`<b>Win games.</b> Each win is about +${FAN_WIN}% fans (more against better teams), worth about <span class="num">${money(winWorth)}</span> more every home game after it.` });
   // a bigger arena, when the seats are what's holding the gate back
   if (G.fac.arena < FAC_MAX) {
-    const more = gateAt(f, G.ticket, G.fac.arena + 1) - gateAt(f), cost = FAC_COST[G.fac.arena];
+    const more = gateAt(f, G.ticket, G.fac.arena + 1) - gateAt(f), cost = facCost('arena');
     if (more > 0) tips.push({ v:more * 7 - cost / 2, t:`<b>Upgrade the arena</b> (<span class="num">${money(cost)}</span>): about <span class="num">+${money(more)}</span> a home game, paid back in ${Math.ceil(cost / more)} home games.` });
   }
   // better food and parking: pays at any crowd, most when the building is busy
   if (G.fac.amenities < FAC_MAX) {
-    const crowd = seats(G.fac.arena) * clamp(f / 100 - (G.ticket - TICKET_FAIR) / 700, 0, 1), cost = FAC_COST[G.fac.amenities];
+    const crowd = seats(G.fac.arena) * clamp(f / 100 - (G.ticket - TICKET_FAIR) / 700, 0, 1), cost = facCost('amenities');
     const more = crowd * (fanSpend(G.fac.amenities + 1) - fanSpend()) / 1e6;
     if (more > 0) tips.push({ v:more * 7 - cost / 2, t:`<b>Upgrade Food + Parking</b> (<span class="num">${money(cost)}</span>): about <span class="num">+${money(more)}</span> a home game, paid back in ${Math.ceil(cost / more)} home games.` });
   }
@@ -1403,7 +1414,7 @@ function officeHTML(){
           <div class="muted" style="font-size:12px">Your payroll can't go over it. Each upgrade adds <span class="num">${money(CAP_STEP)}</span>, up to <span class="num">${money(CAP_MAX)}</span>. Paid in credits (you have <span class="num">${G.credits}</span>).</div></div>
           ${cap < CAP_MAX ? `<button class="btn sm go" data-a="capUp" ${G.credits < CAP_COST ? 'disabled' : ''}>${CAP_COST} CR</button>` : '<span class="px yellow">MAX</span>'}</div>
       </div>
-      <div class="stack">${outlookHTML()}<div class="fac-list">${Object.entries(FAC).map(([k, F]) => { const lv = G.fac[k], c = FAC_COST[lv];
+      <div class="stack">${outlookHTML()}<div class="fac-list">${Object.entries(FAC).map(([k, F]) => { const lv = G.fac[k], c = facCost(k);
         return `<div class="panel row"><div class="grow"><div class="px" style="font-size:13px">${F.name} <span class="yellow">LV${lv}</span></div><div class="fshort num">${F.short(lv)}</div><div class="muted" style="font-size:12px">${F.desc(lv)}</div></div>${lv < FAC_MAX ? `<button class="btn sm go" data-up="${k}" ${G.cash < c ? 'disabled' : ''}>${money(c)}</button>` : '<span class="px yellow">MAX</span>'}</div>`; }).join('')}</div></div>
     </div>`;
 }
@@ -1509,7 +1520,7 @@ $('#ui').addEventListener('click', ev => {
   const tr = ev.target.closest('[data-train]');
   if (tr) { const p = G.roster[sel], k = tr.dataset.train, c = trainCost(p, k); if (G.credits >= c && p[k] < 10) { G.credits -= c; p[k]++; (p.tr ||= {})[k] = (p.tr[k] || 0) + 1; p.sal = Math.max(p.sal, 1); save(); render(); } return; }
   const up = ev.target.closest('[data-up]');
-  if (up) { const k = up.dataset.up, c = FAC_COST[G.fac[k]]; if (G.cash >= c) { G.cash -= c; G.fin.spend += c; G.fac[k]++; save(); render(); toast(`${FAC[k].name} is now level ${G.fac[k]}.`); } return; }
+  if (up) { const k = up.dataset.up, c = facCost(k); if (G.fac[k] < FAC_MAX && G.cash >= c) { G.cash -= c; G.fin.spend += c; G.fac[k]++; save(); render(); toast(`${FAC[k].name} is now level ${G.fac[k]}.`); } return; }
   const fa = ev.target.closest('[data-fa]');
   if (fa) {
     const p = G.fa.find(x => x.id === fa.dataset.fa); if (!p) return;
