@@ -896,7 +896,7 @@ function applyResult(M, us, them, box, pbox = {}){
   // (minus 1% for every half star worse). Every result moves fans at least 2%, and a loss never costs more than 7%.
   const upset = Math.round((teamR(M.opp).stars - userRatings().stars) / .5);
   const mk = G.fac.marketing - 1;                                   // Marketing: wins bring more fans, losses cost fewer
-  const fanResult = Math.round((win ? Math.max(2, FAN_WIN + upset) : clamp(FAN_LOSS + upset, -7, -2)) * (win ? 1 + MKT_WIN * mk : 1 - MKT_LOSS * mk));
+  const fanResult = Math.round((win ? Math.max(2, FAN_WIN + upset) : clamp(FAN_LOSS + upset, -7, -2)) * (win ? 1 + MKT_WIN * mk : 1 - MKT_LOSS * mk) * 10) / 10;   // to 0.1%, so every Marketing level counts
   const fansBefore = G.fans;
   G.fans = clamp(G.fans + fanResult + newBoost, FAN_MIN, 100);
   for (const p of rosterArr()) { p.gp++; p.pts += box[p.id] || 0; }
