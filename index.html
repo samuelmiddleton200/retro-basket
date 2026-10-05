@@ -7,7 +7,9 @@
 <!-- opened from the home screen: no Safari bars, black status bar -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<!-- black-translucent: the page always runs under the status bar area, so iOS has no bar-sized strip to
+     leave behind when the app opens sideways (the game already keeps clear of the notch itself) -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Retro Basket">
 <meta name="theme-color" content="#0b1433">
 <link rel="manifest" href="manifest.webmanifest">
@@ -15,12 +17,59 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <style>
   html,body{overscroll-behavior:none;touch-action:manipulation;-webkit-text-size-adjust:100%}   /* no bounce, no double-tap zoom */
-  /* like an app: the page itself never moves; long menus scroll inside the game area */
-  html,body{height:100%;overflow:hidden}
-  #ui{height:100%;height:100dvh;min-height:0 !important;overflow:hidden;overscroll-behavior:none}
+  /* like an app: the page itself never moves; long menus scroll inside the game area.
+     The page is pinned to the screen (position:fixed) so it cannot sit scrolled or pushed off to one side, and its
+     height comes from --app-h, the size the script below measures, because an iPhone opened sideways sometimes
+     hands the page a stale size or offset for a moment (the "whole screen shifted over" launch). */
+  html,body{position:fixed;left:0;top:0;width:100%;height:100%;height:var(--app-h,100%);overflow:hidden}
+  #ui{height:100%;height:100dvh;height:var(--app-h,100dvh);min-height:0 !important;overflow:hidden;overscroll-behavior:none}
+  #game{height:var(--app-h,100%);bottom:auto !important}
   /* the stats list is the only screen allowed to scroll, and only up and down */
   #ui[data-screen="leaders"]{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 </style>
+<script>
+  // Launch guard for the shifted screen: measure the real screen, pin the page to it, put the page back at 0,0,
+  // and if the iPhone is still reporting a stale size make it measure again. Runs at launch, a few more times in
+  // the first seconds, and whenever the app comes back, rotates or resizes. It never reloads the app.
+  (function(){
+    var root = document.documentElement, nudges = 0, last = '';
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = function(){ return navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches); };
+    var angle = function(){ var a = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : window.orientation; return typeof a === 'number' ? Math.abs(a) % 180 : null; };
+    // what the screen really is: on an iPhone home-screen app that is the whole display, turned the way the phone is held
+    function real(){
+      var w = window.innerWidth, h = window.innerHeight, a = angle();
+      if (ios && standalone() && a !== null && screen.width && screen.height) {
+        var long = Math.max(screen.width, screen.height), short = Math.min(screen.width, screen.height);
+        var ew = a === 90 ? long : short, eh = a === 90 ? short : long;
+        // only a big gap is a stale size (the page still thinks the phone is the other way up); small gaps are real bars
+        if (Math.abs(w - ew) > 60 || Math.abs(h - eh) > 60) return { w:ew, h:eh, stale:true };
+      }
+      return { w:w, h:h, stale:false };
+    }
+    function settle(){
+      try {
+        var r = real(), vv = window.visualViewport;
+        root.style.setProperty('--app-h', r.h + 'px');
+        var moved = window.scrollX || window.scrollY || root.scrollTop || (document.body && document.body.scrollTop) || (vv && (vv.offsetTop || vv.offsetLeft || vv.pageTop || vv.pageLeft));
+        if (moved) { window.scrollTo(0, 0); root.scrollTop = 0; if (document.body) document.body.scrollTop = 0; }
+        if ((r.stale || moved) && nudges < 6) {                      // make the iPhone lay the page out again
+          nudges++;
+          var m = document.querySelector('meta[name=viewport]'), c = m && m.getAttribute('content');
+          if (m) { m.setAttribute('content', c + ', height=device-height'); setTimeout(function(){ m.setAttribute('content', c); }, 60); }
+        }
+        var key = r.w + 'x' + r.h + (r.stale ? 's' : '') + (moved ? 'm' : '');
+        if (key !== last) { last = key; setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 80); }   // the game re-fits its court
+      } catch (e) {}
+    }
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+    settle();
+    [0, 60, 150, 300, 600, 1000, 1600, 2500, 4000].forEach(function(ms){ setTimeout(settle, ms); });
+    ['DOMContentLoaded', 'load', 'pageshow', 'resize', 'orientationchange', 'focus'].forEach(function(ev){ window.addEventListener(ev, function(){ settle(); setTimeout(settle, 250); setTimeout(settle, 700); }); });
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) { nudges = 0; settle(); setTimeout(settle, 250); setTimeout(settle, 700); } });
+    if (window.visualViewport) { visualViewport.addEventListener('resize', settle); visualViewport.addEventListener('scroll', settle); }
+  })();
+</script>
 <script>
   // No surprise updates: the app never reloads itself. A new version (only when we publish one) shows the
   // next time the app is closed and opened again, because the game loads fresh from the server at launch.
@@ -2134,9 +2183,10 @@ let M = null, raf = 0, lastT = 0, paused = false;
 // is about 390), so wide phones see more court instead of black bars. The camera scrolls along the court.
 function fit(){
   const gs = getComputedStyle($('#game')), aw = innerWidth - parseFloat(gs.paddingLeft) - parseFloat(gs.paddingRight);   // same width as the menus
-  CW = clamp(Math.round(CH * aw / innerHeight), 320, Math.min(420, WORLD_W));
+  const ah = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-h')) || innerHeight;   // the phone app measures the real screen (see the site wrapper)
+  CW = clamp(Math.round(CH * aw / ah), 320, Math.min(420, WORLD_W));
   if (cv.width !== CW * 2) { cv.width = CW * 2; cv.height = CH * 2; }
-  const s = Math.min(aw / CW, innerHeight / CH);
+  const s = Math.min(aw / CW, ah / CH);
   cv.style.width = Math.floor(CW * s) + 'px'; cv.style.height = Math.floor(CH * s) + 'px';
 }
 addEventListener('resize', () => { if (M) fit(); });
