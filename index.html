@@ -2539,7 +2539,9 @@ function guardOurs(dt){
 // our shot is in the air: our two teammates nearest the rim (not the shooter) crash the glass,
 // one each side of the rim; their men trail them a step slower. Everyone else watches.
 function updateCrash(dt){
-  const F = M.ball.fl, shooter = F && F.shooter;
+  // the shooter never crashes: while the meter is still running the ball isn't in the air yet, so he is the handler.
+  // (He used to be picked as a crasher then, ran at the rim during the hold, and his three counted as a two.)
+  const F = M.ball.fl, shooter = (F && F.shooter) || (M.shooting ? M.our[M.handler] : null);
   if (!M.crash) M.crash = M.our.map((e, i) => ({ i, d:dist(e, RIM_R) })).filter(o => M.our[o.i] !== shooter).sort((a, b) => a.d - b.d).slice(0, 2).map(o => o.i);
   M.our.forEach((e, i) => {
     const k = M.crash.indexOf(i);
@@ -2901,7 +2903,7 @@ function beginShot(){
   const dfd = M.th[M.handler];
   const contested = Math.hypot(e.x - dfd.x, e.y - dfd.y) < 3.5 && (dfd.still || 0) > .15;
   // every shot uses the meter, layups included (close shots used to be automatic at a fixed 92%)
-  M.shooting = { t0:performance.now(), side:'us', contested, d, released:false };
+  M.shooting = { t0:performance.now(), side:'us', contested, d, three:isThree(e, RIM_R), released:false };   // two or three is decided where he starts the shot
   M.phase = 'shot'; e.z = 1.2;
   showMeter(0);
 }
@@ -2912,7 +2914,7 @@ function release(auto){
   const e = M.our[M.handler];
   const fill = auto ? 0 : meterFill(t);
   const perfect = !auto && meterFill(t) >= PERFECT_AT;
-  const three = isThree(e, RIM_R);
+  const three = S.three ?? isThree(e, RIM_R);
   let chance = perfect ? (S.d <= 28 ? 1 : ourChance(1, S.d, e.p.sht, S.contested)) : ourChance(fill, S.d, e.p.sht, S.contested);
   if (auto) chance = 0;
   const made = Math.random() < chance;
