@@ -1450,7 +1450,6 @@ function outlookHTML(){
   return `<div class="panel outlook">
     <div class="label" style="margin-bottom:4px">Money outlook <span class="muted" style="text-transform:none;letter-spacing:0">(per game, estimate)</span></div>
     <div class="row between" style="font-size:13px"><span>Home ${sgn(O.home)}</span><span>Away ${sgn(O.away)}</span><span>Season ${sgn(O.season)}</span></div>
-    ${O.tips.map(t => `<div class="tipline">${t.t}</div>`).join('')}
   </div>`;
 }
 function officeHTML(){
