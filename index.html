@@ -2675,6 +2675,7 @@ function updateOppMeter(){
   // same contest rule as our shots: one of our players within 3.5 ft at the release (a missed block also counts)
   if (M.our.some(d => dist(d, S.h) < 3.5)) S.contested = true;
   const chance = perfect && S.d <= 28 ? 1 : shotChance(fill, S.d, S.h.p.sht, S.contested);
+  showMeter(perfect ? 1 : Math.round(fill * 100) / 100, 'o');       // the bar matches the number it stops on
   $('#ometerPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
   M.oshot = null;
   launchShot(S.h, RIM_L, Math.random() < chance, 'them', S.three, S.d, false);
@@ -2894,6 +2895,9 @@ function release(auto){
   e.p.fga = (e.p.fga || 0) + 1;
   launchShot(e, RIM_R, made, 'us', three, S.d, auto);
   M.ball.fl.perfect = perfect;
+  // draw the bar at the release itself: it used to stay where the last frame left it, up to 8% short near the top
+  // (the bar climbs about 8% a frame there), so a 91% release looked like 80%. PERFECT fills it completely.
+  showMeter(perfect ? 1 : Math.round(fill * 100) / 100);
   $('#meterPct').textContent = perfect ? 'PERFECT' : Math.round(fill * 100) + '%';
   const id = M.id;
   setTimeout(() => { if (M && M.id === id) { hideMeter(); M.shooting = null; e.z = 0; } }, 700);
