@@ -874,6 +874,7 @@ const perGame = p => p.sal / PAY_GAMES;
 // free agents want a signing bonus in cash up front: $250K at 1 star up to $2.5M at 5 stars, to the nearest $50K
 const signBonus = p => Math.round((.25 + (clamp(starsSmooth(p), 1, 5) - 1) * .5625) * 20) / 20;
 const FAN_WIN = 4, FAN_LOSS = -4, FAN_NEW = 1, NEW_GAMES = 3, FAN_MIN = 15;
+const FAN_OFFSEASON = 15;                                            // fans lost between seasons (user, 2026-10-05): interest cools, win them back
 function pbFor(pbox, p){ return pbox[p.id] ||= { fgm:0, fga:0, tpm:0, tpa:0, reb:0, pass:0, to:0 }; }
 // credit one simulated possession to our players: makes to a scorer, misses to a shooter plus a possible rebound
 function simCredit(box, pbox){ creditPoss({ pl:rosterArr(), box, pb:pbox }, null); }
@@ -1047,7 +1048,8 @@ function startOffseason(){
   const prospects = [];
   POS.forEach(pos => { for (let i = 0; i < 2; i++) { const p = makePlayer(pos, rnd(2.5, 5.5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1.5, 4.5)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * DRAFT_ERR, 1, 10), o), {}); prospects.push(p); } });
   G.phase = 'offseason';
-  G.off = { step:'summary', finish, champ:`${champ.city} ${champ.name}`, record:`${t.w}-${t.l}`, changes, retired, order, prospects, picks:2, round:1, fin:{ ...G.fin } };
+  const fansWas = G.fans; G.fans = Math.max(FAN_MIN, G.fans - FAN_OFFSEASON);
+  G.off = { step:'summary', finish, champ:`${champ.city} ${champ.name}`, record:`${t.w}-${t.l}`, fansWas, fansNow:G.fans, changes, retired, order, prospects, picks:2, round:1, fin:{ ...G.fin } };
   save();
 }
 function startNewSeason(){
@@ -1217,6 +1219,7 @@ function offseasonHTML(){
       <div class="px ${O.finish === 'Champions' ? 'yellow' : ''}" style="font-size:18px">${O.record} · ${esc(O.finish)}</div>
       <div class="muted" style="font-size:13px">Champions: ${esc(O.champ)}</div>
       ${O.changes.length ? `<div style="font-size:13px">${O.changes.map(c => `<div class="row between"><span>${c.pos} ${esc(c.name)}</span><span class="${c.to > c.from ? 'good' : 'bad'}">${c.from}★ → ${c.to}★</span></div>`).join('')}</div>` : ''}
+      ${O.fansNow != null ? `<div class="row between" style="font-size:13px"><span>Fans over the summer</span><span class="num">${Math.round(O.fansWas)}% → <b class="bad">${Math.round(O.fansNow)}%</b></span></div>` : ''}
       ${O.retired.length ? `<div class="bad" style="font-size:13px">Retired: ${esc(O.retired.join(', '))}</div>` : ''}
       <button class="btn go" data-a="offNext">Contracts</button></div>`;
   if (O.step === 'resign') {
