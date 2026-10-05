@@ -872,13 +872,18 @@ function fakeBox(players, score){
   for (let i = ri(4, 9); i > 0; i--) pbFor(pb, wPick(players, p => 11 - p.hnd)).to++;
   addStats(players, box, pb);
 }
+/* Game speed sets how long a game is (user, 2026-10-05): at 5x a played game has twice the possessions of 10x, at 15x
+   two thirds. The speed is picked before the game and every simulated game that week uses the same one, so the
+   whole league's stats stay comparable with ours whatever speed we play at. */
+const SIM_POSS_10X = 28;                                              // possessions per team in a simulated game at 10x
+const simPoss = () => Math.max(8, Math.round(SIM_POSS_10X * 10 / ((G && G.speed) || 10)));
 function simScore(h, a, hMeter = .86, aMeter = .86, hBox = null, hPb = null, aBox = null, aPb = null){
   const H = teamR(h), A = teamR(a);
   const side = (t, box, pb) => ({ t, pl:teamPlayers(t), box:box || {}, pb:pb || {} });
   const hS = side(h, hBox, hPb), aS = side(a, aBox, aPb);
   const go = (o, d, O, D, m) => { const pts = simPossession(O, D, m); creditPoss(o, d); return pts; };
   let hs = 0, as = 0;
-  const n = 28;
+  const n = simPoss();
   for (let i = 0; i < n; i++) { hs += go(hS, aS, H, A, hMeter); as += go(aS, hS, A, H, aMeter); }
   while (hs === as) { hs += go(hS, aS, H, A, hMeter); as += go(aS, hS, A, H, aMeter); }
   // computer teams book their own stats; yours go through applyResult
@@ -1255,7 +1260,7 @@ function hubHTML(){
         <button class="btn" data-go="office">Front office</button>
         <button class="btn" data-go="fa">Free agents</button>
         <button class="btn" data-go="leaders">League leaders</button>
-        <button class="btn" data-a="settings">Game speed ${G.speed}x</button>
+        <button class="btn" data-a="settings" ${savedLive() ? 'disabled' : ''}>Game speed ${G.speed}x${savedLive() ? ' 🔒' : ''}</button>
         <button class="btn" data-a="toSlots" style="grid-column:span 2">Saves · slot ${SLOT}</button>
         ${G.history.length ? `<div class="panel" style="grid-column:span 2;font-size:13px">${G.history.slice(0, 3).map(h => `<div class="row between"><span>S${h.season} · ${h.w}-${h.l}</span><span class="${h.finish === 'Champions' ? 'yellow' : 'muted'}">${esc(h.finish)}</span></div>`).join('')}</div>` : ''}
       </div>
@@ -1665,8 +1670,10 @@ function aiDraft(){
   while (O.prospects.length < 10) { const pos = pick(POS); const p = makePlayer(pos, rnd(2.5, 5), ri(19, 22)); p.pot = Math.min(10, Math.round((pAvg(p) + rnd(1, 4)) * 2) / 2); p.sal = Math.max(1, Math.round(askSalary(p)) / 2); p.yrs = 3; p.scout = RATE.reduce((o, k) => (o[k] = clamp(p[k] + ri(-1, 1) * DRAFT_ERR, 1, 10), o), {}); O.prospects.push(p); }
 }
 function speedSheet(inGame){
-  openSheet(`<div class="px">Game speed</div><div class="muted" style="font-size:13px">How fast the game clock runs. At 10x a 15:00 quarter takes 90 seconds.</div>
-    <div class="row">${[5, 10, 15].map(s => `<button class="btn grow ${G.speed === s ? 'go' : ''}" data-s="${s}">${s}x</button>`).join('')}</div>
+  openSheet(`<div class="px">Game speed</div><div class="muted" style="font-size:13px">How fast the game clock runs. At 10x a 15:00 quarter takes 90 seconds; 5x is twice as long, 15x a third shorter.</div>
+    ${inGame ? `<div class="panel" style="font-size:13px;padding:6px 10px">This game: <b class="yellow num">${G.speed}x</b>. Speed is set before the game, and the whole league plays this week at it.</div>`
+      : `<div class="row">${[5, 10, 15].map(s => `<button class="btn grow ${G.speed === s ? 'go' : ''}" data-s="${s}">${s}x</button>`).join('')}</div>
+      <div class="muted" style="font-size:12px">Every team's games this week are played at the speed you pick, so slower weeks mean more points for everyone, not only you.</div>`}
     ${inGame ? `<div class="row"><button class="btn go grow" id="res">Resume</button><button class="btn" id="simr">Sim rest</button></div>
       <button class="btn" id="savex">Save &amp; exit</button>` : ''}`, sh => {
     sh.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; save(); closeSheet(); if (!inGame) render(); else paused = false; });
@@ -2436,7 +2443,7 @@ function simRest(){
   if (!M) return;
   const U = userRatings(), O = teamR(M.opp);
   const quartersLeft = (M.q <= 4 ? 4 - M.q : 0) + M.clock / 900;
-  const n = Math.round(7 * quartersLeft);
+  const n = Math.round(simPoss() / 4 * quartersLeft);
   for (let i = 0; i < n; i++) {
     const pts = simPossession(U, O, .84); simCredit(M.box, M.pbox, pts); M.us += pts;
     M.them += simPossession(O, U, .86);
