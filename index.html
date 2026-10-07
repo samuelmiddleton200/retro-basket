@@ -668,6 +668,10 @@ function shotChance(meter, d, sht, contested){
 // The other team keeps the table as it is; PERFECT still always goes in from 28 ft or closer.
 const US_SHOT_PENALTY = .05;
 const ourChance = (meter, d, sht, contested) => Math.max(0, shotChance(meter, d, sht, contested) - US_SHOT_PENALTY);
+// A PERFECT release: always in from 28 ft or closer, then it fades with distance (user, 2026-10-07):
+// a deep three (30 ft) 80%, half court (42 ft) 60%, full court (85 ft) 35%. Same for both teams, whoever is guarding.
+const PERFECT_D = [[28, 1], [30, .8], [42, .6], [85, .35]];
+const perfectChance = d => lerpTable(PERFECT_D, d, 1);
 const distM = d => shotBase(d, 5) / shotBase(0, 5);                   // relative distance factor (for the PDF note)
 const fumbleChance = (hnd, open) => lerp(.1, .02, (hnd - 1) / 9) * (open ? .5 : 1);
 
@@ -2757,7 +2761,7 @@ function updateOppMeter(){
   const fill = Math.min(f, S.target), perfect = fill >= PERFECT_AT;
   // same contest rule as our shots: one of our players within 3.5 ft at the release (a missed block also counts)
   if (M.our.some(d => dist(d, S.h) < 3.5)) S.contested = true;
-  const chance = perfect && S.d <= 28 ? 1 : shotChance(fill, S.d, S.h.p.sht, S.contested);
+  const chance = perfect ? perfectChance(S.d) : shotChance(fill, S.d, S.h.p.sht, S.contested);
   showMeter(perfect ? 1 : Math.round(fill * 100) / 100, 'o');       // the bar matches the number it stops on
   $('#ometerPct').textContent = perfect ? 'PERFECT' : Math.min(Math.round(fill * 100), PERFECT_AT * 100 - 1) + '%';   // never shows 97% without PERFECT
   M.oshot = null;
@@ -3071,7 +3075,7 @@ function release(auto){
   const fill = auto ? 0 : meterFill(t);
   const perfect = !auto && meterFill(t) >= PERFECT_AT;
   const three = S.three ?? isThree(e, RIM_R);
-  let chance = perfect ? (S.d <= 28 ? 1 : ourChance(1, S.d, e.p.sht, S.contested)) : ourChance(fill, S.d, e.p.sht, S.contested);
+  let chance = perfect ? perfectChance(S.d) : ourChance(fill, S.d, e.p.sht, S.contested);
   if (auto) chance = 0;
   const made = Math.random() < chance;
   e.p.fga = (e.p.fga || 0) + 1;
