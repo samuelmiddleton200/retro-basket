@@ -282,6 +282,7 @@ input[type=text]{width:100%;background:var(--navy);border:3px solid var(--white)
 .tpick .tn{font-size:11px;line-height:1.15}.tpick .tn b{font-family:var(--px);font-size:10px}
 .shootbtn{position:absolute;right:12px;bottom:12px;width:138px;height:138px;border-radius:50%;font-size:20px;padding:0;touch-action:none;-webkit-touch-callout:none;z-index:4}
 .shootbtn:active{transform:translateY(3px)}
+.shootbtn.dunk{background:#ff5a3c;color:#fff;border-color:#fff}
 .tip{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-family:var(--px);font-size:10px;text-align:center;color:#fff;text-shadow:0 2px 0 #000;pointer-events:none;max-width:60%}
 
 /* money outlook (front office) */
@@ -1924,6 +1925,44 @@ const SHOOT_TOP = [
   '...jJJJJJJj...',
   '...jJJJJJJj...',
 ];
+// Dunk poses: the same head and trunk as the shooting pose with no arms drawn; each pose adds its arms as [row, column, letter].
+const DUNK_TOP = [
+  '..............',
+  '..............',
+  '.....HHHH.....',
+  '....HHHHHH....',
+  '....HSSSSS....',
+  '....SSSSES....',
+  '....SSSSSS....',
+  '.....sSSS.....',
+  '.....TSST.....',
+  '...TJJJJJJT...',
+  '...JJJJJJJJ...',
+  '...JJJJJJJJ...',
+  '...jJJJJJJj...',
+  '...jJJJJJJj...',
+  '...jJJJJJJj...',
+];
+const ARM_UP = [[0, 10, 'S'], [0, 11, 'S'], [1, 10, 'S'], [1, 11, 'S'], [2, 10, 'S'], [2, 11, 'S'], ...[3, 4, 5, 6, 7, 8].flatMap(r => [[r, 10, 's'], [r, 11, 'S']]), [9, 11, 'S']];   // straight up, two pixels thick like his other arm, hand on top
+const ARM_BACK = [[9, 2, 'S'], [10, 1, 'S'], [10, 2, 'S'], [11, 1, 'S'], [11, 2, 's'], [12, 1, 'S'], [12, 2, 's'], [13, 1, 'S']];                                       // trailing arm, down and back
+const ARM_SLAM = [[9, 11, 'S'], [8, 11, 's'], [8, 12, 'S'], [7, 11, 's'], [7, 12, 'S'], [6, 12, 's'], [6, 13, 'S'], [5, 12, 's'], [5, 13, 'S'], [4, 12, 'S'], [4, 13, 'S'], [3, 12, 'S'], [3, 13, 'S']];   // reaching up and forward into the rim
+const ARM_FLAIL = [[9, 2, 'S'], [8, 2, 's'], [8, 1, 'S'], [7, 1, 'S'], [6, 1, 's'], [6, 0, 'S'], [5, 0, 'S']];                                                              // off arm thrown back for balance
+const POSES = {
+  shoot:{ top:SHOOT_TOP, legs:'stand' },
+  dunkUp:{ top:DUNK_TOP, legs:'dunkUp', arms:[...ARM_UP, ...ARM_BACK] },
+  dunkSlam:{ top:DUNK_TOP, legs:'dunkSlam', arms:[...ARM_SLAM, ...ARM_FLAIL] },
+  dunkHang:{ top:DUNK_TOP, legs:'dunkHang', arms:[...ARM_UP, ...ARM_BACK] },
+};
+// head and trunk rows for a frame: hair styled, then the pose's arms laid on top (hair rows are rewritten whole, so arms go on after)
+function poseRows(p, frame){
+  const pose = POSES[frame];
+  const h = styleHair(pose ? [...pose.top, ...BODY.slice(14)] : [...BODY], p, pose ? 2 : 0);
+  if (pose && pose.arms) {
+    const set = (r, c, ch) => { const a = [...h.rows[r]]; a[c] = ch; h.rows[r] = a.join(''); };
+    for (const [r, c, ch] of pose.arms) { set(r >= 2 ? r + h.added : r, c, ch); if (h.added && r === 2) set(2, c, ch); }   // tall hair adds a row: keep the arm unbroken
+  }
+  return { h, pose, legs:LEGS[pose ? pose.legs : frame] || LEGS.stand };
+}
 const NUM_ROW = { stand:8, shoot:10 };                                 // first jersey row that carries the number
 const DIGITS = {
   0:['.##.','#..#','#..#','#..#','#..#','.##.'], 1:['.#..','##..','.#..','.#..','.#..','###.'], 2:['.##.','#..#','..#.','.#..','#...','####'],
@@ -1937,6 +1976,10 @@ const LEGS = {
   run1: ['.....SSSS.....','.....SSSSS....','......SS.SS...','......ss.WW...','......WW.KK...','.....KKK......'],
   run2: ['.....SSSS.....','....SS..SS....','....SS...SS...','...ss....SS...','...WW.....WW..','..KK......KKK.'],
   run3: ['.....SSSS.....','.....SSSSS....','......SS.SS...','......ss.WW...','......WW.KK...','.....KKK......'],
+  // dunks: a long stride off one foot going up, knees tucked at the rim, legs hanging while he's on it
+  dunkUp:  ['....SS..SSSS..','...SS.....SS..','..SS......WW..','..ss.....KKK..','.WW...........','KKK...........'],
+  dunkSlam:['....SS..SS....','....SSs.SSs...','...WWs.WWs....','..KKK.KKK.....','..............','..............'],
+  dunkHang:['....SS..SS....','....SS..SS....','....ss..ss....','....WW..WW....','....WW..WW....','....KK..KK....'],
 };
 function shade(hex, k){
   const n = parseInt(hex.slice(1), 16);
@@ -2071,9 +2114,8 @@ const hdCache = {};
 function hdSprite(p, U, frame){
   const key = ['hd', p.id, U.J, U.P, U.R, U.T, frame, p.style, p.skin, p.hair, p.band, p.face].join('|');
   if (hdCache[key]) return hdCache[key];
-  const shoot = frame === 'shoot';
-  const h = styleHair(shoot ? [...SHOOT_TOP, ...BODY.slice(14)] : [...BODY], p, shoot ? 2 : 0);
-  const rows = h.rows.concat(LEGS[shoot ? 'stand' : frame] || LEGS.stand);
+  const { h, pose, legs } = poseRows(p, frame), shoot = !!pose;
+  const rows = h.rows.concat(legs);
   const hair = p.hair && p.hair.startsWith('#') ? p.hair : '#1b1410';
   const pal = { H:hair, S:p.skin, s:shade(p.skin, -.16), E:'#1d1d27', T:U.T, J:U.J, j:U.j, P:U.P, p:U.p, R:U.R, W:'#f4f4f4', K:'#1d1d27', G:'#bfe3ff' };
   const W = 14, Hh = rows.length;
@@ -2136,11 +2178,11 @@ function hdSprite(p, U, frame){
   return hdCache[key] = c;
 }
 // draw a player at court size (14 px wide) from his HD sprite; returns the top y
-function drawHD(g, p, U, frame, X, feetY, face){
+function drawHD(g, p, U, frame, X, feetY, face, ghost){
   const spr = hdSprite(p, U, frame), h = spr.rowsH, top = feetY - h;
   if ((face || 1) < 0) { g.save(); g.translate(X, 0); g.scale(-1, 1); g.drawImage(spr, -7, top, 14, h); g.restore(); }
   else g.drawImage(spr, X - 7, top, 14, h);
-  drawNumber(g, X - 7, top + spr.numRow, p.num, U.T);
+  if (!ghost) drawNumber(g, X - 7, top + spr.numRow, p.num, U.T);
   return top;
 }
 function drawBench(side){
@@ -2167,9 +2209,12 @@ function drawNumber(g, left, top, num, color){
   ds.forEach((d, i) => DIGITS[d].forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') g.fillRect(x0 + (i * 5 + x) / 2, y0 + y / 2, .5, .5); })));
 }
 function drawPlayer(e, U, marker){
-  const X = Math.round(sx(e.x)), Yg = Math.round(sy(e.y)), Y = Math.round(sy(e.y, e.z || 0));
+  const D = M.dunk && M.dunk.e === e ? M.dunk : null;
+  const X = Math.round(sx(e.x) + (D ? D.sw : 0)), Yg = Math.round(sy(e.y)), Y = Math.round(sy(e.y, e.z || 0));
   const shooting = (e.shootT || 0) > 0 || (M.shooting && !M.shooting.released && e === M.our[M.handler]);
-  const frame = shooting ? 'shoot' : e.moving ? 'run' + (((Math.floor(e.anim) % RUN_FRAMES) + RUN_FRAMES) % RUN_FRAMES) : 'stand';
+  // a dunker in the air leaves a fading trail behind him
+  if (D && D.st === 'fly') D.trail.forEach((g, i) => { ctx.globalAlpha = .1 + i * .07; drawHD(ctx, e.p, U, g.frame, Math.round(sx(g.x)), Math.round(sy(g.y, g.z)), e.face || 1, true); ctx.globalAlpha = 1; });
+  const frame = D && D.frame ? D.frame : shooting ? 'shoot' : e.moving ? 'run' + (((Math.floor(e.anim) % RUN_FRAMES) + RUN_FRAMES) % RUN_FRAMES) : 'stand';
   // soft oval shadow, smaller when he's in the air
   const air = clamp(1 - (e.z || 0) / 6, .5, 1);
   ctx.fillStyle = 'rgba(96,48,16,.30)'; ctx.fillRect(X - 6 * air, Yg - 1, 12 * air + 1, 2); ctx.fillRect(X - 4 * air, Yg - 2, 8 * air + 1, 1); ctx.fillRect(X - 4 * air, Yg + 1, 8 * air + 1, 1);
@@ -2366,6 +2411,7 @@ function relocateThem(e, i){
   const [a, b] = ROLE_WAIT[e.p.pos] || [1, 2]; e.wait = rnd(a, b);
 }
 function startOurs(fromX, fromY, inbound){
+  clearDunk();
   if (checkQuarterEnd()) return;
   M.phase = 'back'; M.shot = 24; M.shooting = null; M.oshot = null; M.afterScore = false; hideMeter(); hideMeter('o');
   const h = inbound ? 0 : nearestIdx(M.our, { x:fromX, y:fromY });
@@ -2377,6 +2423,7 @@ function startOurs(fromX, fromY, inbound){
   tip('');
 }
 function startTheirs(fromX, fromY, inbound){
+  clearDunk();
   if (checkQuarterEnd()) return;
   M.phase = 'opp'; M.shooting = null; M.oshot = null; M.afterScore = false; hideMeter(); hideMeter('o');
   const h = inbound ? 0 : nearestIdx(M.th, { x:fromX, y:fromY });
@@ -2397,8 +2444,9 @@ function buzzer(){
   if (M.buzzer) return;                                             // a buzzer shot is already playing out
   const F = M.ball.fl;
   if (F && F.kind === 'shot') { M.buzzer = true; return; }
+  if (M.dunk && M.dunk.st === 'fly') { M.buzzer = true; return; }      // already in the air: the dunk counts
   if (F && F.kind === 'drop') return;                               // it went in just before: the next possession ends it
-  M.shooting = null; M.oshot = null; M.ball.fl = null; M.reb = null;
+  M.shooting = null; M.oshot = null; M.ball.fl = null; M.reb = null; clearDunk();
   endQuarter();
 }
 function checkQuarterEnd(){
@@ -2406,6 +2454,7 @@ function checkQuarterEnd(){
   endQuarter(); return true;
 }
 function endQuarter(){
+  clearDunk();
   if (M.phase === 'break' || M.phase === 'done') return;              // already over (a leftover timer can call again)
   M.clock = Math.max(0, M.clock);
   const q = M.q, final = q >= 4 && M.us !== M.them;
@@ -2496,10 +2545,13 @@ const isOpen = i => { const e = M.our[i], d = M.th[i]; return !(Math.hypot(e.x -
 
 function update(dt){
   if (!M || paused) return;
+  if (M.stop > 0) { M.stop -= dt; return; }                           // hit-stop: one frozen beat on a dunk
+  if (M.shake > 0) M.shake -= dt;
+  if (M.pop > 0) M.pop -= dt;
   M.flash = Math.max(0, M.flash - dt);
   for (const e of [...M.our, ...M.th]) if (e.shootT > 0) e.shootT -= dt;
   tireAll();
-  const running = ['back', 'live', 'opp', 'shot', 'oshot', 'pass', 'opass', 'reb'].includes(M.phase) && !(M.hold > 0);   // clocks stop during the setup
+  const running = ['back', 'live', 'opp', 'shot', 'dunk', 'oshot', 'pass', 'opass', 'reb'].includes(M.phase) && !(M.hold > 0);   // clocks stop during the setup
   if (M.hold > 0) M.hold -= dt;
   if (running && M.phase !== 'reb') M.st[['opp', 'opass', 'oshot'].includes(M.phase) ? 'them' : 'us'].poss += dt * G.speed;
   if (running) { M.clock -= dt * G.speed; if (M.phase === 'back' || M.phase === 'live' || M.phase === 'pass' || M.phase === 'shot') M.shot -= dt * 2; }
@@ -2509,9 +2561,13 @@ function update(dt){
   else if (M.phase === 'shot') updateCrash(dt);
   else if (M.phase === 'oshot') { updateOpp(dt); if (M.oshot) updateOppMeter(); }
   else if (M.phase === 'reb') updateReb(dt);
+  if (M.dunk) updateDunk(dt);                                         // runs on through the score and the pause after it
   updateBall(dt);
+  if (!M) return;
+  const dk = canDunk();                                               // the button says what a press will do
+  if (dk !== M.dkShown) { M.dkShown = dk; sb.textContent = dk ? 'DUNK' : 'SHOOT'; sb.classList.toggle('dunk', dk); }
   if ((M.phase === 'live' || M.phase === 'back') && M.shot <= 0) { turnover('SHOT CLOCK'); }
-  else if (M.clock <= 0 && ['back', 'live', 'pass', 'shot', 'opp', 'opass', 'oshot', 'reb'].includes(M.phase)) buzzer();
+  else if (M.clock <= 0 && ['back', 'live', 'pass', 'shot', 'dunk', 'opp', 'opass', 'oshot', 'reb'].includes(M.phase)) buzzer();
   if (M && M.shooting && !M.shooting.released) {
     const t = (performance.now() - M.shooting.t0) / 1000;
     showMeter(meterFill(t));
@@ -2741,12 +2797,18 @@ function fumbleLoose(rec, F, side){
 function updateBall(dt){
   const B = M.ball, h = holderEnt();
   if (h && !B.fl) {
+    if (M.dunk && M.dunk.e === h && M.dunk.st === 'fly') {            // held high in one hand, then brought forward into the rim
+      const up = M.dunk.frame !== 'dunkSlam';
+      B.x = h.x + (up ? .85 : 1.3); B.y = h.y + .3; B.z = (h.z || 0) + (up ? 7.9 : 6.9);
+      return;
+    }
     const dribble = h.moving || M.phase === 'back' || M.hold > 0;
     B.x = h.x + (h.face || 1) * 1.3; B.y = h.y + .3;
     B.z = (M.shooting && M.shooting.side === 'us' && h === M.our[M.handler]) || (M.oshot && h === M.oshot.h) ? 7.6 + (h.z || 0) : dribble ? .6 + Math.abs(Math.sin(performance.now() / 120)) * 2.4 : 3.2;
     return;
   }
   const F = B.fl;
+  if (!F && M.bounce) { const b = M.bounce; b.t += dt; B.x = b.x - b.t * 2.2; B.y = b.y + b.t * 1.2; B.z = Math.abs(Math.sin(b.t * 9.5)) * 4.2 * Math.exp(-b.t * 2.6); return; }
   if (!F) {
     // a loose ball bounces lower and lower on the floor
     if (M.phase === 'reb' && M.reb && M.reb.landed) { M.reb.bt += dt; B.x = M.reb.pt.x; B.y = M.reb.pt.y; B.z = Math.abs(Math.sin(M.reb.bt * 9)) * 2.2 * Math.exp(-M.reb.bt * 2.2); }
@@ -2802,7 +2864,8 @@ function updateBall(dt){
   }
   if (F.kind === 'drop') {                                        // through the net and onto the floor
     const id = M.id, side = F.side;
-    setTimeout(() => { if (!M || M.id !== id) return; side === 'us' ? startTheirs(91, 25, true) : startOurs(3, 25, true); if (M) { M.hold = M.clock > 15 ? SETUP_HOLD : 0; M.afterScore = true; } }, 450);
+    if (F.wait > 450) M.bounce = { t:0, x:B.x, y:B.y };               // a dunked ball comes off the floor hard
+    setTimeout(() => { if (!M || M.id !== id) return; side === 'us' ? startTheirs(91, 25, true) : startOurs(3, 25, true); if (M) { M.hold = M.clock > 15 ? SETUP_HOLD : 0; M.afterScore = true; } }, F.wait || 450);
     return;
   }
   if (F.kind === 'bounce') { if (M.reb) { M.reb.landed = true; M.reb.bt = 0; } return; }   // no M.reb after a buzzer miss
@@ -2814,10 +2877,11 @@ function updateBall(dt){
   // the shot reached the rim
   if (F.made) {
     M.flash = .5;
-    if (F.side === 'us') { M.us += F.pts; M.box[F.shooter.p.id] = (M.box[F.shooter.p.id] || 0) + F.pts; banner(F.three ? 'THREE!' : 'BUCKET!', F.perfect ? 'PERFECT RELEASE' : `${F.shooter.p.fn[0]}. ${F.shooter.p.ln}`, 900); }
+    if (F.side === 'us') { M.us += F.pts; M.box[F.shooter.p.id] = (M.box[F.shooter.p.id] || 0) + F.pts; banner(F.dunk ? (F.poster ? 'POSTER!' : 'SLAM DUNK!') : F.three ? 'THREE!' : 'BUCKET!', F.perfect ? 'PERFECT RELEASE' : `${F.shooter.p.fn[0]}. ${F.shooter.p.ln}`, F.dunk ? 1100 : 900); }
     else { M.them += F.pts; banner(`${M.opp.city} scores!`, `${M.us}-${M.them}`, 1100, true); }
     hud(); M.phase = 'pause';
-    B.fl = { kind:'drop', from:{ x:F.rim.x, y:F.rim.y, z:RIM_Z }, to:{ x:F.rim.x, y:F.rim.y + .3, z:0 }, t:0, dur:.45, side:F.side };
+    // a dunk is spiked through: the ball drops twice as fast, and the restart waits for the dunker to come down off the rim
+    B.fl = { kind:'drop', from:{ x:F.rim.x, y:F.rim.y, z:RIM_Z }, to:{ x:F.rim.x, y:F.rim.y + .3, z:0 }, t:0, dur:F.dunk ? .2 : .45, side:F.side, wait:F.dunk ? 780 : 450 };
     return;
   }
   startRebound(F);
@@ -2829,7 +2893,7 @@ function startRebound(F){
   void U; void O;
   M.reb = { pt, shotSide:F.side, landed:!!F.air, bt:0 };
   if (!F.air) B.fl = { kind:'bounce', from:{ x:B.x, y:B.y, z:B.z }, to:{ x:pt.x, y:pt.y, z:.4 }, t:0, dur:.5 + dist(B, pt) * .02, peak:3.5 };
-  if (F.side === 'us') banner(F.air ? 'AIRBALL' : 'MISS', '', 800);
+  if (F.side === 'us') banner(F.air ? 'AIRBALL' : F.dunk ? 'RIMMED OUT' : 'MISS', '', 800);
   if (M.buzzer) {                                                   // a missed buzzer shot: watch it bounce, then the quarter is over
     M.phase = 'pause'; M.reb = null;
     const id = M.id, wait = (F.air ? 0 : (.5 + dist(B, pt) * .02) * 1000) + 700;
@@ -2898,6 +2962,94 @@ function showMeter(f, who = ''){
   fill.style.background = `rgb(${Math.round(lerp(255, 68, f))},${Math.round(lerp(255, 196, f))},${Math.round(lerp(255, 93, f))})`;
 }
 function hideMeter(who = ''){ $('#' + who + 'meter').hidden = true; $('#' + who + 'meterPct').textContent = ''; }
+/* ---- dunks (user, 2026-10-07) ----
+   Press SHOOT with a clear run at the rim and the ball handler drives in and dunks instead of pulling up.
+   "Clear" = no defender within DUNK_CLEAR ft of him and none standing in the lane between him and the rim
+   (the button reads DUNK when it's on). He sprints to a takeoff spot about 5.5 ft out, rises with the ball
+   high in one hand, throws it down, hangs on the rim for a beat and drops. A clean dunk always goes in; with a
+   defender on him at takeoff it's 80% (a make over a defender is a poster, a miss rims out to a rebound).
+   M.dunk = { e, st:'run' | 'fly' | 'hang' | 'fall' | 'land', t, frame, ... }. */
+const DUNK_CLEAR = 10, DUNK_LANE = 6, DUNK_RANGE = 45, DUNK_TAKEOFF = 5.5;
+const DUNK_Z_PEAK = 3.9, DUNK_Z_SLAM = 3.4, DUNK_Z_HANG = 2.57;       // feet off the floor: top of the rise, hand at the rim, hanging from it
+// how far a point is from the straight line between two others
+function segDist(p, a, b){
+  const vx = b.x - a.x, vy = b.y - a.y, l2 = vx * vx + vy * vy || 1;
+  const k = clamp(((p.x - a.x) * vx + (p.y - a.y) * vy) / l2, 0, 1);
+  return Math.hypot(p.x - (a.x + vx * k), p.y - (a.y + vy * k));
+}
+function canDunk(){
+  if (!M || M.dunk || M.ball.fl || M.shooting || M.hold > 0 || (M.phase !== 'live' && M.phase !== 'back')) return false;
+  const h = M.ball.holder; if (!h || h.side !== 'us') return false;
+  const e = M.our[h.i];
+  if (dist(e, RIM_R) > DUNK_RANGE) return false;
+  return M.th.every(d => dist(d, e) >= DUNK_CLEAR && segDist(d, e, RIM_R) >= DUNK_LANE);
+}
+function clearDunk(){ if (!M) return; M.bounce = null; if (M.dunk) { M.dunk.e.z = 0; M.dunk = null; } }
+function beginDunk(){
+  const e = M.our[M.handler], rim = RIM_R;
+  let dx = e.x - rim.x, dy = e.y - rim.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  if (dx > -.6) { dx = -.6; dy = (dy < 0 ? -1 : 1) * .8; }            // always come at the rim from the court side, never from behind the board
+  const near = l < DUNK_TAKEOFF + .5 && e.x < rim.x - 2.5;            // already close and in front: go up from where he stands
+  const T = near ? { x:e.x, y:e.y } : { x:rim.x + dx * DUNK_TAKEOFF, y:rim.y + dy * DUNK_TAKEOFF };
+  hideMeter(); tip('');
+  M.crash = null; M.box3 = null;
+  M.phase = 'dunk';
+  M.dunk = { e, st:'run', t:0, T, d0:l, frame:null, trail:[], sw:0 };
+  e.tx = T.x; e.ty = T.y; e.face = 1;
+}
+function updateDunk(dt){
+  const D = M.dunk, e = D.e, rim = RIM_R;
+  D.t += dt;
+  if (D.st === 'run') {
+    if (M.phase !== 'dunk') { clearDunk(); return; }
+    M.our.forEach(o => { if (o !== e) o.moving = false; });           // everyone else watches
+    guardOurs(dt);                                                     // their defense chases
+    const arrived = moveTo(e, D.T.x, D.T.y, ourSpeed(e) * 1.12, dt);   // an extra gear on the way in
+    e.face = 1;
+    if (!arrived && D.t < 5) return;
+    // takeoff
+    D.contested = M.th.some(d => dist(d, e) < 3.5);
+    D.made = Math.random() < (D.contested ? .8 : 1);
+    D.st = 'fly'; D.t = 0; D.from = { x:e.x, y:e.y }; D.to = { x:rim.x - 1.7, y:rim.y + .02 };
+    D.dur = clamp(.36 + dist(D.from, D.to) * .04, .36, .62);
+    D.frame = 'dunkUp'; e.moving = false; D.trailT = 0;
+    return;
+  }
+  if (D.st === 'fly') {
+    const k = Math.min(1, D.t / D.dur), s = k * k * (3 - 2 * k);       // glide: ease out of the jump and into the rim
+    e.x = lerp(D.from.x, D.to.x, lerp(k, s, .5)); e.y = lerp(D.from.y, D.to.y, s);
+    // up to the top of the jump at 78% of the flight, then down a touch as the arm comes through
+    e.z = k < .78 ? DUNK_Z_PEAK * (1 - Math.pow(1 - k / .78, 2)) : lerp(DUNK_Z_PEAK, DUNK_Z_SLAM, Math.pow((k - .78) / .22, 2));
+    D.frame = k < .8 ? 'dunkUp' : 'dunkSlam';
+    D.trailT -= dt; if (D.trailT <= 0) { D.trailT = .035; D.trail.push({ x:e.x, y:e.y, z:e.z, frame:D.frame }); if (D.trail.length > 4) D.trail.shift(); }
+    if (k < 1) return;
+    // the slam: the ball goes down through the rim (or off the back of it)
+    e.z = DUNK_Z_SLAM;
+    launchShot(e, rim, D.made, 'us', false, D.d0, false);
+    e.shootT = 0;
+    const F = M.ball.fl; F.dunk = true; F.poster = D.made && D.contested;
+    F.from = { x:rim.x - .4, y:rim.y, z:RIM_Z + .5 }; F.dur = D.made ? .06 : .1; F.peak = 0;   // straight out of his hand at the rim
+    M.stop = .07; M.shake = .28; M.pop = D.made ? .7 : 0;               // a beat of hit-stop, the camera rattles, flashbulbs in the stands
+    D.st = D.made ? 'hang' : 'fall'; D.t = 0; D.z0 = e.z; D.x0 = e.x; D.trail = [];
+    return;
+  }
+  if (D.st === 'hang') {                                               // both feet off the floor, one hand on the rim, swinging
+    const k = Math.min(1, D.t / .1);
+    e.z = lerp(DUNK_Z_SLAM, DUNK_Z_HANG, k); e.x = lerp(D.x0, rim.x - 2.05, k);
+    D.frame = 'dunkHang';
+    D.sw = Math.sin(D.t * 15) * 1.6 * Math.exp(-D.t * 4);
+    if (D.t >= .42) { D.st = 'fall'; D.t = 0; D.z0 = e.z; D.x0 = e.x; D.sw = 0; }
+    return;
+  }
+  if (D.st === 'fall') {
+    e.z = D.z0 - 34 * D.t * D.t; e.x = D.x0 - D.t * 3;                 // lets go and drops, drifting back off the rim
+    e.face = 1;
+    D.frame = e.z > .9 ? (D.made ? 'dunkHang' : 'dunkSlam') : null;
+    if (e.z <= 0) { e.z = 0; D.st = 'land'; D.t = 0; D.frame = null; }
+    return;
+  }
+  if (D.t >= .1) M.dunk = null;                                        // landed
+}
 function beginShot(){
   const e = M.our[M.handler];
   const d = Math.hypot(e.x - RIM_R.x, e.y - RIM_R.y);
@@ -2959,6 +3111,7 @@ sb.addEventListener('pointerdown', ev => {
   ev.preventDefault();
   if (M && !paused && M.phase === 'oshot') { tryBlock(); return; }
   if (!M || paused || (M.phase !== 'live' && M.phase !== 'back') || M.ball.fl || M.shooting || M.hold > 0) return;   // no plays during the setup after a score
+  if (canDunk()) { beginDunk(); return; }
   try { sb.setPointerCapture(ev.pointerId); } catch {} beginShot();
 });
 sb.addEventListener('pointerup', up);
@@ -2973,13 +3126,22 @@ function draw(){
   const B = M.ball;
   const target = clamp(X0 + B.x * PXF - CW / 2, 0, WORLD_W - CW);
   cam = lerp(cam, target, .12);
+  if (M.shake > 0) {                                                  // a dunk rattles the camera for a moment
+    const a = M.shake / .28; ctx.fillStyle = '#0b1433'; ctx.fillRect(0, 0, CW, CH);
+    ctx.translate(Math.round((Math.random() - .5) * 4 * a), Math.round((Math.random() - .5) * 3 * a));
+  }
   ctx.drawImage(courtCv, Math.round(cam), 0, CW, CH, 0, 0, CW, CH);
+  if (M.pop > 0) {                                                    // flashbulbs going off in the stands
+    for (let i = 0; i < 5; i++) { const fx = Math.floor(Math.random() * CW), fy = 3 + Math.floor(Math.random() * (Y0 - 22)); ctx.fillStyle = '#ffffff'; ctx.fillRect(fx, fy - 1, 1, 3); ctx.fillRect(fx - 1, fy, 3, 1); }
+  }
   cam = Math.round(cam * 100) / 100;
   const t = M.t;
   const ents = [
     ...M.our.map((e, i) => ({ y:e.y, f:() => drawPlayer(e, M.uni.us, i === M.handler && (M.phase === 'live' || M.phase === 'back') ? '#ffd23f' : null) })),   // only the ball handler gets an arrow
     ...M.th.map(e => ({ y:e.y, f:() => drawPlayer(e, M.uni.them, null) })),
-    { y:25.01, f:() => { drawHoop(0, M.flash > 0 && B.x < 47); drawHoop(1, M.flash > 0 && B.x > 47); } },
+    { y:25.01, f:() => { drawHoop(0, M.flash > 0 && B.x < 47);
+      const dip = M.dunk && M.dunk.st === 'hang' ? 1 : 0;                // the rim gives under a man hanging on it
+      if (dip) { ctx.save(); ctx.translate(0, dip); } drawHoop(1, M.flash > 0 && B.x > 47); if (dip) ctx.restore(); } },
     { y:-2, f:() => { drawBench('us'); drawBench('them'); } },
     // the ball sorts in with the players: a dribbled ball sits just behind its dribbler, so anyone level with
     // or in front of him covers it instead of the ball floating on top of them
