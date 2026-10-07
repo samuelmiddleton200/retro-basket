@@ -2964,12 +2964,12 @@ function showMeter(f, who = ''){
 function hideMeter(who = ''){ $('#' + who + 'meter').hidden = true; $('#' + who + 'meterPct').textContent = ''; }
 /* ---- dunks (user, 2026-10-07) ----
    Press SHOOT with a clear run at the rim and the ball handler drives in and dunks instead of pulling up.
-   "Clear" = no defender within DUNK_CLEAR ft of him and none standing in the lane between him and the rim
+   He has to be within DUNK_RANGE ft of the rim with no defender within DUNK_CLEAR ft of him
    (the button reads DUNK when it's on). He sprints to a takeoff spot about 5.5 ft out, rises with the ball
    high in one hand, throws it down, hangs on the rim for a beat and drops. A clean dunk always goes in; with a
    defender on him at takeoff it's 80% (a make over a defender is a poster, a miss rims out to a rebound).
    M.dunk = { e, st:'run' | 'fly' | 'hang' | 'fall' | 'land', t, frame, ... }. */
-const DUNK_CLEAR = 10, DUNK_LANE = 6, DUNK_RANGE = 45, DUNK_TAKEOFF = 5.5;
+const DUNK_CLEAR = 12, DUNK_RANGE = 15, DUNK_TAKEOFF = 5.5;           // user's rule: within 15 ft of the rim, no defender within 12 ft of him
 const DUNK_Z_PEAK = 3.9, DUNK_Z_SLAM = 3.4, DUNK_Z_HANG = 2.57;       // feet off the floor: top of the rise, hand at the rim, hanging from it
 // how far a point is from the straight line between two others
 function segDist(p, a, b){
@@ -2982,7 +2982,7 @@ function canDunk(){
   const h = M.ball.holder; if (!h || h.side !== 'us') return false;
   const e = M.our[h.i];
   if (dist(e, RIM_R) > DUNK_RANGE) return false;
-  return M.th.every(d => dist(d, e) >= DUNK_CLEAR && segDist(d, e, RIM_R) >= DUNK_LANE);
+  return M.th.every(d => dist(d, e) >= DUNK_CLEAR);
 }
 function clearDunk(){ if (!M) return; M.bounce = null; if (M.dunk) { M.dunk.e.z = 0; M.dunk = null; } }
 function beginDunk(){
