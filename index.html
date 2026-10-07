@@ -60,8 +60,29 @@
         }
         var key = r.w + 'x' + r.h + (r.stale ? 's' : '') + (moved ? 'm' : '');
         if (key !== last) { last = key; setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 80); }   // the game re-fits its court
+        readout(r, moved);
       } catch (e) {}
     }
+    // Launch readout (temporary, for the "wrong formatting on my phone" report): one tiny line on the save-slot
+    // screen with what this phone says about its screen, so a screenshot of a bad launch tells us what went wrong.
+    var box = null, probe = null;
+    function readout(r, moved){
+      if (!document.body) return;
+      if (!box) {
+        box = document.createElement('div');
+        box.style.cssText = 'position:fixed;left:50%;top:64%;transform:translateX(-50%);z-index:200;font:9px/1.2 monospace;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:3px;pointer-events:none;white-space:nowrap';
+        probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:100dvh;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:content-box';
+        document.body.appendChild(probe); document.body.appendChild(box);
+      }
+      var ui = document.getElementById('ui'), vv = window.visualViewport, cs = getComputedStyle(probe), n = function(v){ return Math.round(parseFloat(v) || 0); };
+      box.hidden = !(ui && ui.dataset.screen === 'slots');
+      box.textContent = 'v202610070648 in' + innerWidth + 'x' + innerHeight + ' sc' + screen.width + 'x' + screen.height + ' a' + angle() + ' app' + r.w + 'x' + r.h + (r.stale ? '!' : '')
+        + ' dvh' + n(cs.height) + ' vv' + (vv ? n(vv.width) + 'x' + n(vv.height) + '+' + n(vv.offsetLeft) + '+' + n(vv.offsetTop) : '-')
+        + ' safe' + [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map(n).join('/') + ' ui' + (ui ? n(ui.getBoundingClientRect().top) + '/' + n(ui.getBoundingClientRect().height) : '-')
+        + ' sa' + (standalone() ? 1 : 0) + ' mv' + (moved ? 1 : 0) + ' n' + nudges;
+    }
+    setInterval(function(){ try { settle(); } catch (e) {} }, 1000);       // keeps the readout (and the fit) current
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
     settle();
     [0, 60, 150, 300, 600, 1000, 1600, 2500, 4000].forEach(function(ms){ setTimeout(settle, ms); });
@@ -2542,6 +2563,7 @@ function updateCrash(dt){
   // the shooter never crashes: while the meter is still running the ball isn't in the air yet, so he is the handler.
   // (He used to be picked as a crasher then, ran at the rim during the hold, and his three counted as a two.)
   const F = M.ball.fl, shooter = (F && F.shooter) || (M.shooting ? M.our[M.handler] : null);
+  if (M.crash && shooter && M.crash.includes(M.our.indexOf(shooter))) M.crash = null;   // never the shooter, whatever was left in the list
   if (!M.crash) M.crash = M.our.map((e, i) => ({ i, d:dist(e, RIM_R) })).filter(o => M.our[o.i] !== shooter).sort((a, b) => a.d - b.d).slice(0, 2).map(o => o.i);
   M.our.forEach((e, i) => {
     const k = M.crash.indexOf(i);
@@ -2905,6 +2927,9 @@ function beginShot(){
   // every shot uses the meter, layups included (close shots used to be automatic at a fixed 92%)
   M.shooting = { t0:performance.now(), side:'us', contested, d, three:isThree(e, RIM_R), released:false };   // two or three is decided where he starts the shot
   M.phase = 'shot'; e.z = 1.2;
+  // fresh crashers and box-out men for this shot. M.crash used to be left over from the last shot (often the other
+  // team's, whose player numbers then got used on ours), so a shooter who was on that old list ran at the rim.
+  M.crash = null; M.box3 = null;
   showMeter(0);
 }
 function release(auto){
